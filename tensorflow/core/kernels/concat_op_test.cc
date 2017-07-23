@@ -309,8 +309,7 @@ TEST_F(ConcatOpSimpleTest, SimpleTestOnCpu0){
   EXPECT_EQ(3, outputs[0].dim_size(1));
   EXPECT_EQ(12, outputs[0].NumElements());
 
-  delete g;
-  delete node;
+  //delete g;
 }
 
 TEST_F(ConcatOpSimpleTest, SimpleTestOnCpu1){
@@ -342,7 +341,6 @@ TEST_F(ConcatOpSimpleTest, SimpleTestOnCpu1){
   EXPECT_EQ(12, outputs[0].NumElements());
 
   delete g;
-  delete node;
 }
 
 
