@@ -18,6 +18,7 @@ limitations under the License.
 #include <vector>
 
 #include "tensorflow/core/common_runtime/kernel_benchmark_testlib.h"
+#include "tensorflow/core/common_runtime/graph_runner.h"
 #include "tensorflow/core/framework/allocator.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/tensor.h"
@@ -251,4 +252,101 @@ BENCHMARK(MemcpyManyAlternative2)
     ->Arg(65);
 
 }  // namespace
+
+
+//
+// simple test case:
+// t1 = [[1, 2, 3], [4, 5, 6]]
+// t2 = [[7, 8, 9], [10, 11, 12]]
+// concat_dim = 0, result == [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]]
+// concat_dim = 1, result == [[1, 2, 3, 7, 8, 9], [4, 5, 6, 10, 11, 12]]
+class ConcatOpSimpleTest : public ::testing::Test{
+public:
+  ConcatOpSimpleTest()
+    : t1(DT_INT32, TensorShape({2, 3}))
+    , t2(DT_INT32, TensorShape({2, 3})){
+  }
+
+protected:
+  virtual void SetUp(){
+  }
+
+  virtual void TearDown(){
+  }
+
+protected:
+  Tensor t1;
+  Tensor t2;
+};
+
+
+
+TEST_F(ConcatOpSimpleTest, SimpleTestOnCpu0){
+  Graph* g = new Graph(OpRegistry::Global());
+
+  Tensor concat_dim(DT_INT32, TensorShape({}));
+  concat_dim.scalar<int32>()() = 0;
+
+  Node* node;
+  TF_CHECK_OK(
+    NodeBuilder(g->NewName("n"), "Concat")
+        .Input(test::graph::Constant(g, concat_dim))
+        .Input({test::graph::Constant(g, t1), test::graph::Constant(g, t1)})
+        .Attr("N", 2)
+        .Attr("T", DT_INT32)
+        .Finalize(g, &node));
+
+  GraphRunner graph_runner(Env::Default());
+  std::vector<Tensor> outputs;
+  Status s =
+    graph_runner.Run(g, nullptr, {}, {node->name()}, &outputs);
+  TF_ASSERT_OK(s);
+
+  EXPECT_EQ(1, outputs.size());
+  EXPECT_EQ(DT_INT32, outputs[0].dtype());
+  EXPECT_EQ(2, outputs[0].dims());
+  EXPECT_EQ(4, outputs[0].dim_size(0));
+  EXPECT_EQ(3, outputs[0].dim_size(1));
+  EXPECT_EQ(12, outputs[0].NumElements());
+
+  delete g;
+  delete node;
+}
+
+TEST_F(ConcatOpSimpleTest, SimpleTestOnCpu1){
+  Graph* g = new Graph(OpRegistry::Global());
+
+  Tensor concat_dim(DT_INT32, TensorShape({}));
+  concat_dim.scalar<int32>()() = 1;
+
+  Node* node;
+  TF_CHECK_OK(
+    NodeBuilder(g->NewName("n"), "Concat")
+      .Input(test::graph::Constant(g, concat_dim))
+      .Input({test::graph::Constant(g, t1), test::graph::Constant(g, t1)})
+      .Attr("N", 2)
+      .Attr("T", DT_INT32)
+      .Finalize(g, &node));
+
+  GraphRunner graph_runner(Env::Default());
+  std::vector<Tensor> outputs;
+  Status s =
+    graph_runner.Run(g, nullptr, {}, {node->name()}, &outputs);
+  TF_ASSERT_OK(s);
+
+  EXPECT_EQ(1, outputs.size());
+  EXPECT_EQ(DT_INT32, outputs[0].dtype());
+  EXPECT_EQ(2, outputs[0].dims());
+  EXPECT_EQ(2, outputs[0].dim_size(0));
+  EXPECT_EQ(6, outputs[0].dim_size(1));
+  EXPECT_EQ(12, outputs[0].NumElements());
+
+  delete g;
+  delete node;
+}
+
+
+
+
+
 }  // namespace tensorflow
