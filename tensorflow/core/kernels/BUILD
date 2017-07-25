@@ -229,6 +229,19 @@ cc_library(
 )
 
 cc_library(
+    name = "ops_testutil_2",
+    testonly = 1,
+    hdrs = ["ops_testutil_2.h"],
+    deps = [
+        "//tensorflow/core:core_cpu",
+        "//tensorflow/core:framework",
+        "//tensorflow/core:lib",
+        "//tensorflow/core:tensor_testutil",
+        "//tensorflow/core:test",
+    ]
+)
+
+cc_library(
     name = "ops_util",
     srcs = ["ops_util.cc"],
     hdrs = ["ops_util.h"],
@@ -807,12 +820,30 @@ tf_cc_test(
 )
 
 tf_cc_test(
+    name = "ops_testutil_2_test",
+    size = "small",
+    srcs = ["ops_testutil_2_test.cc"],
+    deps = [
+        ":identity_op",
+        ":ops_testutil_2",
+        ":ops_util",
+        "//tensorflow/core:core_cpu",
+        "//tensorflow/core:framework",
+        "//tensorflow/core:lib",
+        "//tensorflow/core:protos_all_cc",
+        "//tensorflow/core:test",
+        "//tensorflow/core:test_main",
+        "//tensorflow/core:testlib",
+    ]
+)
+
+tf_cc_test(
     name = "concat_op_test",
     size = "small",
     srcs = ["concat_op_test.cc"],
     deps = [
         ":concat_op",
-        ":ops_testutil",
+        ":ops_testutil_2",
         ":ops_util",
         "//tensorflow/core:core_cpu",
         "//tensorflow/core:framework",

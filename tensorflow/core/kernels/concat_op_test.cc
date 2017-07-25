@@ -24,9 +24,10 @@ limitations under the License.
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/types.h"
 #include "tensorflow/core/framework/types.pb.h"
+#include "tensorflow/core/framework/fake_input.h"
 #include "tensorflow/core/graph/node_builder.h"
 #include "tensorflow/core/graph/testlib.h"
-#include "tensorflow/core/kernels/ops_testutil.h"
+#include "tensorflow/core/kernels/ops_testutil_2.h"
 #include "tensorflow/core/kernels/ops_util.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
 #include "tensorflow/core/platform/prefetch.h"
@@ -260,91 +261,117 @@ BENCHMARK(MemcpyManyAlternative2)
 // t2 = [[7, 8, 9], [10, 11, 12]]
 // concat_dim = 0, result == [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]]
 // concat_dim = 1, result == [[1, 2, 3, 7, 8, 9], [4, 5, 6, 10, 11, 12]]
-class ConcatOpSimpleTest : public ::testing::Test{
-public:
-  ConcatOpSimpleTest()
-    : t1(DT_INT32, TensorShape({2, 3}))
-    , t2(DT_INT32, TensorShape({2, 3})){
-  }
+//
 
-protected:
-  virtual void SetUp(){
-  }
+TEST_F(OpsTestOnCpu, SimpleTestOnCpu0){
+  TF_EXPECT_OK(NodeDefBuilder("concat_op", "Concat")
+                            .Input(FakeInput(DT_INT32))
+                            .Input(FakeInput(2, DT_INT32))
+                            .Finalize(node_def()));
+  TF_EXPECT_OK(InitOp());
+  AddInputFromArray<int>(TensorShape({}), {0});
+  AddInputFromArray<int>(TensorShape({2,3}), {1,2,3,4,5,6});
+  AddInputFromArray<int>(TensorShape({2,3}), {7,8,9,10,11,12});
 
-  virtual void TearDown(){
-  }
+  TF_ASSERT_OK(RunOpKernel());
 
-protected:
-  Tensor t1;
-  Tensor t2;
-};
-
-
-
-TEST_F(ConcatOpSimpleTest, SimpleTestOnCpu0){
-  Graph* g = new Graph(OpRegistry::Global());
-
-  Tensor concat_dim(DT_INT32, TensorShape({}));
-  concat_dim.scalar<int32>()() = 0;
-
-  Node* node;
-  TF_CHECK_OK(
-    NodeBuilder(g->NewName("n"), "Concat")
-        .Input(test::graph::Constant(g, concat_dim))
-        .Input({test::graph::Constant(g, t1), test::graph::Constant(g, t1)})
-        .Attr("N", 2)
-        .Attr("T", DT_INT32)
-        .Finalize(g, &node));
-
-  GraphRunner graph_runner(Env::Default());
-  std::vector<Tensor> outputs;
-  Status s =
-    graph_runner.Run(g, nullptr, {}, {node->name()}, &outputs);
-  TF_ASSERT_OK(s);
-
-  EXPECT_EQ(1, outputs.size());
-  EXPECT_EQ(DT_INT32, outputs[0].dtype());
-  EXPECT_EQ(2, outputs[0].dims());
-  EXPECT_EQ(4, outputs[0].dim_size(0));
-  EXPECT_EQ(3, outputs[0].dim_size(1));
-  EXPECT_EQ(12, outputs[0].NumElements());
-
-  //delete g;
+  Tensor expected(allocator(), DT_INT32, TensorShape({4,3}));
+  test::FillValues<int>(&expected, {1,2,3,4,5,6,7,8,9,10,11,12});
+  test::ExpectTensorEqual<int>(expected, *GetOutput(0));
 }
 
-TEST_F(ConcatOpSimpleTest, SimpleTestOnCpu1){
-  Graph* g = new Graph(OpRegistry::Global());
+TEST_F(OpsTestOnCpu, SimpleTestOnCpu1) {
+  TF_EXPECT_OK(NodeDefBuilder("concat_op", "Concat")
+                    .Input(FakeInput(DT_INT32))
+                    .Input(FakeInput(2, DT_INT32))
+                    .Finalize(node_def()));
 
-  Tensor concat_dim(DT_INT32, TensorShape({}));
-  concat_dim.scalar<int32>()() = 1;
+  TF_EXPECT_OK(InitOp());
+  AddInputFromArray<int>(TensorShape({}), {1});
+  AddInputFromArray<int>(TensorShape({2,3}), {1,2,3,4,5,6});
+  AddInputFromArray<int>(TensorShape({2,3}), {7,8,9,10,11,12});
 
-  Node* node;
-  TF_CHECK_OK(
-    NodeBuilder(g->NewName("n"), "Concat")
-      .Input(test::graph::Constant(g, concat_dim))
-      .Input({test::graph::Constant(g, t1), test::graph::Constant(g, t1)})
-      .Attr("N", 2)
-      .Attr("T", DT_INT32)
-      .Finalize(g, &node));
+  TF_ASSERT_OK(RunOpKernel());
 
-  GraphRunner graph_runner(Env::Default());
-  std::vector<Tensor> outputs;
-  Status s =
-    graph_runner.Run(g, nullptr, {}, {node->name()}, &outputs);
-  TF_ASSERT_OK(s);
-
-  EXPECT_EQ(1, outputs.size());
-  EXPECT_EQ(DT_INT32, outputs[0].dtype());
-  EXPECT_EQ(2, outputs[0].dims());
-  EXPECT_EQ(2, outputs[0].dim_size(0));
-  EXPECT_EQ(6, outputs[0].dim_size(1));
-  EXPECT_EQ(12, outputs[0].NumElements());
-
-  delete g;
+  Tensor expected(allocator(), DT_INT32, TensorShape({2,6}));
+  test::FillValues<int>(&expected, {1,2,3,7,8,9,4,5,6,10,11,12});
+  test::ExpectTensorEqual<int>(expected, *GetOutput(0));
 }
 
+#if GOOGLE_CUDA
+TEST_F(OpsTestOnGpu, SimpleTestOnGpu0){
+  TF_EXPECT_OK(NodeDefBuilder("concat_op", "Concat")
+                            .Input(FakeInput(DT_INT32))
+                            .Input(FakeInput(2, DT_INT32))
+                            .Finalize(node_def()));
+  TF_EXPECT_OK(InitOp());
+  AddInputFromArray<int>(TensorShape({}), {0});
+  AddInputFromArray<int>(TensorShape({2,3}), {1,2,3,4,5,6});
+  AddInputFromArray<int>(TensorShape({2,3}), {7,8,9,10,11,12});
 
+  TF_ASSERT_OK(RunOpKernel());
 
+  Tensor expected(allocator(), DT_INT32, TensorShape({4,3}));
+  test::FillValues<int>(&expected, {1,2,3,4,5,6,7,8,9,10,11,12});
+  test::ExpectTensorEqual<int>(expected, *GetOutput(0));
+}
+
+TEST_F(OpsTestOnGpu, SimpleTestOnGpu1) {
+  TF_EXPECT_OK(NodeDefBuilder("concat_op", "Concat")
+                    .Input(FakeInput(DT_INT32))
+                    .Input(FakeInput(2, DT_INT32))
+                    .Finalize(node_def()));
+
+  TF_EXPECT_OK(InitOp());
+  AddInputFromArray<int>(TensorShape({}), {1});
+  AddInputFromArray<int>(TensorShape({2,3}), {1,2,3,4,5,6});
+  AddInputFromArray<int>(TensorShape({2,3}), {7,8,9,10,11,12});
+
+  TF_ASSERT_OK(RunOpKernel());
+
+  Tensor expected(allocator(), DT_INT32, TensorShape({2,6}));
+  test::FillValues<int>(&expected, {1,2,3,7,8,9,4,5,6,10,11,12});
+  test::ExpectTensorEqual<int>(expected, *GetOutput(0));
+}
+#endif
+
+#ifdef TENSORFLOW_USE_SYCL
+TEST_F(OpsTestOnSycl, SimpleTestOnSycl0){
+  TF_EXPECT_OK(NodeDefBuilder("concat_op", "Concat")
+                            .Input(FakeInput(DT_INT32))
+                            .Input(FakeInput(2, DT_INT32))
+                            .Finalize(node_def()));
+  TF_EXPECT_OK(InitOp());
+  AddInputFromArray<int>(TensorShape({}), {0});
+  AddInputFromArray<int>(TensorShape({2,3}), {1,2,3,4,5,6});
+  AddInputFromArray<int>(TensorShape({2,3}), {7,8,9,10,11,12});
+
+  TF_ASSERT_OK(RunOpKernel());
+
+  Tensor expected(allocator(), DT_INT32, TensorShape({4,3}));
+  test::FillValues<int>(&expected, {1,2,3,4,5,6,7,8,9,10,11,12});
+  test::ExpectTensorEqual<int>(expected, *GetOutput(0));
+}
+
+TEST_F(OpsTestOnSycl, SimpleTestOnSycl1) {
+  TF_EXPECT_OK(NodeDefBuilder("concat_op", "Concat")
+                    .Input(FakeInput(DT_INT32))
+                    .Input(FakeInput(2, DT_INT32))
+                    .Finalize(node_def()));
+
+  TF_EXPECT_OK(InitOp());
+  AddInputFromArray<int>(TensorShape({}), {1});
+  AddInputFromArray<int>(TensorShape({2,3}), {1,2,3,4,5,6});
+  AddInputFromArray<int>(TensorShape({2,3}), {7,8,9,10,11,12});
+
+  TF_ASSERT_OK(RunOpKernel());
+
+  Tensor expected(allocator(), DT_INT32, TensorShape({2,6}));
+  test::FillValues<int>(&expected, {1,2,3,7,8,9,4,5,6,10,11,12});
+  test::ExpectTensorEqual<int>(expected, *GetOutput(0));
+}
+
+#endif
 
 
 }  // namespace tensorflow
