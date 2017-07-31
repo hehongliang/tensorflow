@@ -298,7 +298,7 @@ TEST_F(OpsTestOnCpu, SimpleTestOnCpu1) {
   test::ExpectTensorEqual<int>(expected, *GetOutput(0));
 }
 
-#if GOOGLE_CUDA
+//#if GOOGLE_CUDA
 TEST_F(OpsTestOnGpu, SimpleTestOnGpu0){
   TF_EXPECT_OK(NodeDefBuilder("concat_op", "Concat")
                             .Input(FakeInput(DT_INT32))
@@ -333,7 +333,7 @@ TEST_F(OpsTestOnGpu, SimpleTestOnGpu1) {
   test::FillValues<int>(&expected, {1,2,3,7,8,9,4,5,6,10,11,12});
   test::ExpectTensorEqual<int>(expected, *GetOutput(0));
 }
-#endif
+//#endif
 
 #ifdef TENSORFLOW_USE_SYCL
 TEST_F(OpsTestOnSycl, SimpleTestOnSycl0){

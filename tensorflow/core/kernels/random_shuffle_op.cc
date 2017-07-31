@@ -25,6 +25,8 @@ limitations under the License.
 #include "tensorflow/core/platform/logging.h"
 #include "tensorflow/core/util/guarded_philox_random.h"
 
+#include "tensorflow/core/kernels/random_shuffle_lib.h"
+
 namespace tensorflow {
 
 // TODO(irving): If performance is critical, generate output directly instead
@@ -59,6 +61,218 @@ static void IndexedShuffle(const int64 size, const InT& input_mat,
   }
 }
 
+namespace my_dbg{
+
+static void PrintTensor(const Tensor& t){
+  auto dims = t.dims();
+  auto allocatorName = t.AllocatorName();
+  auto dtype = t.dtype();
+  std::cout
+  <<" origin_tensor:"
+  <<" dims="<<dims
+  <<" AllocatorName="<<allocatorName
+  <<" dtype="<<dtype
+  <<" dimensions=(";
+  TensorShape shape = t.shape();
+  for(int i = 0; i < shape.dims(); i++){
+    std::cout<<shape.dim_size(i);
+    if(i < shape.dims() - 1){
+      std::cout<<",";
+    }
+  }
+  std::cout<<")"<<std::endl;
+}
+
+template<typename T>
+class DataToString;
+
+template<>
+struct  DataToString<int> {
+public:
+  static string trans(int t){
+    return std::to_string(t);
+  }
+};
+
+template<typename T>
+struct DataToString{
+public:
+  static string trans(const T& t){
+    DataType dtype = DataTypeToEnum<T>::value;
+    return string("not support to string, dtype=") + DataToString<int>::trans(static_cast<int>(dtype));
+  }
+};
+
+
+template<typename T, int NDIMS>
+static void PrintEigenTensor(typename TTypes<T, NDIMS>::ConstTensor  t){
+
+  std::cout<<std::endl;
+  std::cout<<"DebugPrintEigenTensor"<<std::endl;
+
+  std::cout
+  <<" eigen_tensor base info:"
+  <<" rank="<<t.rank()
+  <<" size="<<t.size()
+  <<" dimensions=(";
+  auto dimensions = t.dimensions();
+  for(int i = 0; i < dimensions.size(); i++){
+    std::cout<<dimensions[i];
+    if(i < dimensions.size() - 1) {
+      std::cout<<",";
+    }
+  }
+  std::cout<<")"<<std::endl;
+
+
+  std::cout<<" al_elements=(";
+  for(int i = 0; i < t.size(); i++){
+    std::cout<<DataToString<T>::trans(t(i));
+    if(i < t.size() - 1){
+      std::cout<<",";
+    }
+  }
+  std::cout<<")"<<std::endl;
+
+}
+
+template <typename T>
+static void PrintChip(T & evaluator){
+  std::cout<<std::endl;
+  std::cout<<"DebugPrintEigenTensor"<<std::endl;
+  auto dimensions = evaluator.dimensions();
+  std::cout
+  <<" chip_dims="<<dimensions.rank()
+  <<" dimensions=(";
+
+
+  int num_size = 1;
+  for(int i = 0; i < dimensions.size(); i++){
+    std::cout<<dimensions[i];
+    num_size *= dimensions[i];
+    if(i < dimensions.size() - 1) {
+      std::cout<<",";
+    }
+  }
+  std::cout<<")"<<std::endl;
+
+
+  for(int i = 0; i < num_size; i++){
+    std::cout<<DataToString<typename T::CoeffReturnType>::trans(evaluator.coeff(i));
+    if(i < num_size - 1){
+      std::cout<<",";
+    }
+  }
+  std::cout<<std::endl;
+}
+
+
+template <typename T>
+static void DebugPrintTensor(const Tensor& t){
+  std::cout<<std::endl;
+  std::cout<<"DebugPrintTensor"<<std::endl;
+
+  std::cout<<" T ="<<DataTypeToEnum<T>::v()<<std::endl;
+
+  PrintTensor(t);
+  PrintEigenTensor<T, 1>(t.flat<T>());
+  /*PrintEigenTensor<T, 1>(t.shaped<T, 1>({t.NumElements()}));
+  PrintEigenTensor<T, 2>(t.shaped<T, 2>({3, t.NumElements() / 3}));
+  PrintEigenTensor<T, 2>(t.flat_inner_dims<T, 2>());
+  PrintEigenTensor<T, 2>(t.flat_outer_dims<T, 2>());
+  PrintEigenTensor<T, 3>(t.tensor<T, 3>());
+
+  typename TTypes<T, 3>::ConstTensor eigen_t = t.tensor<T, 3>();
+  PrintEigenTensor<T, 3>(eigen_t);
+
+
+
+  const Eigen::TensorChippingOp<0, const typename TTypes<T, 3>::ConstTensor> chip00 = eigen_t.template chip<0>(0);
+  Eigen::TensorEvaluator<const Eigen::TensorChippingOp<0, const typename TTypes<T, 3>::ConstTensor>, Eigen::DefaultDevice>
+    evaluator01(chip00, Eigen::DefaultDevice());
+  PrintChip(evaluator01);
+
+  const Eigen::TensorChippingOp<0, const typename TTypes<T, 3>::ConstTensor> chip01 = eigen_t.template chip<0>(1);
+  Eigen::TensorEvaluator<const Eigen::TensorChippingOp<0, const typename TTypes<T, 3>::ConstTensor>, Eigen::DefaultDevice>
+    evaluator02(chip01, Eigen::DefaultDevice());
+  PrintChip(evaluator02);
+
+  const Eigen::TensorChippingOp<0, const typename TTypes<T, 3>::ConstTensor> chip02 = eigen_t.template chip<0>(2);
+  Eigen::TensorEvaluator<const Eigen::TensorChippingOp<0, const typename TTypes<T, 3>::ConstTensor>, Eigen::DefaultDevice>
+    evaluator03(chip02, Eigen::DefaultDevice());
+  PrintChip(evaluator03);
+
+  //
+  //
+  const Eigen::TensorChippingOp<1, const typename TTypes<T, 3>::ConstTensor> chip10 = eigen_t.template chip<1>(0);
+  Eigen::TensorEvaluator<const Eigen::TensorChippingOp<1, const typename TTypes<T, 3>::ConstTensor>, Eigen::DefaultDevice>
+    evaluator10(chip10, Eigen::DefaultDevice());
+  PrintChip(evaluator10);
+
+
+  const Eigen::TensorChippingOp<1, const typename TTypes<T, 3>::ConstTensor> chip11 = eigen_t.template chip<1>(1);
+  Eigen::TensorEvaluator<const Eigen::TensorChippingOp<1, const typename TTypes<T, 3>::ConstTensor>, Eigen::DefaultDevice>
+    evaluator11(chip11, Eigen::DefaultDevice());
+  PrintChip(evaluator11);
+
+  const Eigen::TensorChippingOp<1, const typename TTypes<T, 3>::ConstTensor> chip12 = eigen_t.template chip<1>(2);
+  Eigen::TensorEvaluator<const Eigen::TensorChippingOp<1, const typename TTypes<T, 3>::ConstTensor>, Eigen::DefaultDevice>
+    evaluator12(chip12, Eigen::DefaultDevice());
+  PrintChip(evaluator12);
+
+
+  //
+  //
+  const Eigen::TensorChippingOp<2, const typename TTypes<T, 3>::ConstTensor> chip20 = eigen_t.template chip<2>(0);
+  Eigen::TensorEvaluator<const Eigen::TensorChippingOp<2, const typename TTypes<T, 3>::ConstTensor>, Eigen::DefaultDevice>
+    evaluator20(chip20, Eigen::DefaultDevice());
+  PrintChip(evaluator20);
+
+  const Eigen::TensorChippingOp<2, const typename TTypes<T, 3>::ConstTensor> chip21 = eigen_t.template chip<2>(1);
+  Eigen::TensorEvaluator<const Eigen::TensorChippingOp<2, const typename TTypes<T, 3>::ConstTensor>, Eigen::DefaultDevice>
+    evaluator21(chip21, Eigen::DefaultDevice());
+  PrintChip(evaluator21);
+
+  const Eigen::TensorChippingOp<2, const typename TTypes<T, 3>::ConstTensor> chip22 = eigen_t.template chip<2>(2);
+  Eigen::TensorEvaluator<const Eigen::TensorChippingOp<2, const typename TTypes<T, 3>::ConstTensor>, Eigen::DefaultDevice>
+    evaluator22(chip22, Eigen::DefaultDevice());
+  PrintChip(evaluator22);*/
+
+
+
+
+
+  //Eigen::internal::TensorExecutor<typename Eigen::TensorChippingOp<0, const typename TTypes<T, 3>::ConstTensor>, Eigen::DefaultDevice, false>::run(chip, Eigen::DefaultDevice());
+
+  //const Tensor& slice = t.Slice(4, 8);
+  //PrintTensor(slice);
+  //PrintEigenTensor<T, 1>(slice.vec<T>());
+  //PrintEigenTensor<T, 2>(slice.shaped<T, 2>({2, 2}));
+}
+
+void DebugPhiloxRandom(GuardedPhiloxRandom& random){
+  std::cout<<std::endl;
+  std::cout<<"DebugPhiloxRandom"<<std::endl;
+
+  int samples = 10;
+  auto local_gen = random.ReserveSamples32(samples);
+  auto randoms = local_gen();
+  for(int i = 0; i < randoms.size(); i++){
+    std::cout<<randoms[i];
+    std::cout<<",";
+  }
+
+  auto randoms1 = local_gen();
+  for(int i = 0; i < randoms1.size(); i++){
+    std::cout<<randoms1[i];
+    std::cout<<",";
+  }
+}
+
+}
+
+
+
 template <typename T>
 class RandomShuffleOp : public OpKernel {
  public:
@@ -67,7 +281,41 @@ class RandomShuffleOp : public OpKernel {
   }
 
   void Compute(OpKernelContext* context) override {
+    std::cout<<"we are in new kernel now!";
+
     const Tensor& input = context->input(0);
+    my_dbg::DebugPrintTensor<T>(input);
+
+    if (input.NumElements() <= 1 || input.dim_size(0) <= 1) {
+      // No shuffling is required, so copy input directly to output
+      context->set_output(0, input);
+    } else {
+
+      // Reserve enough random samples for shuffling
+      const int64 size = input.dim_size(0);
+      const int64 samples = size - 1;
+      auto local_gen = generator_.ReserveSamples32(samples);
+      random::SingleSampleAdapter<random::PhiloxRandom> single(&local_gen);
+      const std::function<int64(uint32)>& uniform = [&single](uint32 n) { return single() % n; };
+
+      Tensor* output = nullptr;
+      OP_REQUIRES_OK(context,
+                     context->allocate_output(0, input.shape(), &output));
+      const auto input_mat = input.flat_outer_dims<T>();
+      auto output_mat = output->flat_outer_dims<T>();
+      RandomShuffleCPU<T>(context, input_mat, &output_mat, uniform);
+      my_dbg::DebugPrintTensor<T>(*output);
+    }
+
+
+    //my_dbg::DebugPhiloxRandom(generator_);
+  }
+
+  void Compute2(OpKernelContext* context) {
+
+    std::cout<<"we are in kernel now!";
+    const Tensor& input = context->input(0);
+    my_dbg::DebugPrintTensor<T>(input);
 
     if (input.NumElements() <= 1 || input.dim_size(0) <= 1) {
       // No shuffling is required, so copy input directly to output
@@ -84,6 +332,7 @@ class RandomShuffleOp : public OpKernel {
         // For 1D data, copy and then shuffle in place
         context->set_output(0, tensor::DeepCopy(input));
         auto vec = context->mutable_output(0)->vec<T>();
+
         RandomShuffle(vec.data(), vec.data() + size, uniform);
       } else {
         // For >= 2D, shuffle indices and then copy across
@@ -97,8 +346,13 @@ class RandomShuffleOp : public OpKernel {
         } else {
           IndexedShuffle<int64>(size, input_mat, output_mat, uniform);
         }
+
+        my_dbg::DebugPrintTensor<T>(*output);
+
       }
     }
+
+    my_dbg::DebugPhiloxRandom(generator_);
   }
 
  private:

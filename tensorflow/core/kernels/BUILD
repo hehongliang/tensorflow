@@ -118,6 +118,31 @@ tf_kernel_library(
 )
 
 tf_kernel_library(
+    name = "random_shuffle_lib",
+    srcs = [
+        "random_shuffle_lib_cpu.cc",
+    ],
+
+    hdrs = [
+        "random_shuffle_lib.h",
+    ],
+
+    gpu_srcs = [
+        "random_shuffle_lib.h",
+        "random_shuffle_lib_gpu.cu.cc",
+    ],
+
+    deps = [
+        ":bounds_check",
+        "//tensorflow/core:framework",
+        "//third_party/eigen3",
+    ],
+
+    alwayslink = 0,
+)
+
+
+tf_kernel_library(
     name = "concat_lib",
     srcs = [
         "concat_lib_cpu.cc",
@@ -825,6 +850,25 @@ tf_cc_test(
     srcs = ["ops_testutil_2_test.cc"],
     deps = [
         ":identity_op",
+        ":ops_testutil_2",
+        ":ops_util",
+        "//tensorflow/core:core_cpu",
+        "//tensorflow/core:framework",
+        "//tensorflow/core:lib",
+        "//tensorflow/core:protos_all_cc",
+        "//tensorflow/core:test",
+        "//tensorflow/core:test_main",
+        "//tensorflow/core:testlib",
+    ]
+)
+
+tf_cc_test(
+    name = "random_shuffle_op_test",
+    size = "small",
+    srcs = ["random_shuffle_op_test.cc"],
+    deps = [
+        ":random_shuffle_lib",
+        ":random_shuffle_op",
         ":ops_testutil_2",
         ":ops_util",
         "//tensorflow/core:core_cpu",
@@ -3166,7 +3210,9 @@ tf_kernel_library(
 tf_kernel_library(
     name = "random_shuffle_op",
     prefix = "random_shuffle_op",
-    deps = RANDOM_OPS_DEPS,
+    deps = RANDOM_OPS_DEPS +[
+        ":random_shuffle_lib",
+    ],
 )
 
 tf_cuda_cc_test(

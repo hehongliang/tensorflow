@@ -585,6 +585,9 @@ bool Tensor::RefCountIsOne() const {
 
 Tensor::Tensor(Allocator* a, DataType type, const TensorShape& shape)
     : shape_(shape), buf_(nullptr) {
+
+  allocator_name_ = a->Name();
+
   set_dtype(type);
   CHECK_NOTNULL(a);
   if (shape_.num_elements() > 0 || a->ShouldAllocateEmptyTensors()) {
@@ -599,6 +602,9 @@ Tensor::Tensor(Allocator* a, DataType type, const TensorShape& shape)
 Tensor::Tensor(Allocator* a, DataType type, const TensorShape& shape,
                const AllocationAttributes& allocation_attr)
     : shape_(shape), buf_(nullptr) {
+
+  allocator_name_ = a->Name();
+
   set_dtype(type);
   CHECK_NOTNULL(a);
   if (shape_.num_elements() > 0 || a->ShouldAllocateEmptyTensors()) {
@@ -907,9 +913,10 @@ void Tensor::FillDescription(TensorDescription* description) const {
   }
 }
 
-gtl::InlinedVector<int64, 4> Tensor::ComputeFlatInnerDims(
-    gtl::ArraySlice<int64> orig, int64 num_out_dims) {
+gtl::InlinedVector<int64, 4> Tensor::ComputeFlatInnerDims(gtl::ArraySlice<int64> orig,
+                                                          int64 num_out_dims) {
   gtl::InlinedVector<int64, 4> out_dims(num_out_dims, 0);
+
   int64 offset = orig.size() - num_out_dims;
   for (int64 out_dim = num_out_dims - 1; out_dim >= 0; --out_dim) {
     const int64 in_dim = out_dim + offset;
@@ -921,8 +928,9 @@ gtl::InlinedVector<int64, 4> Tensor::ComputeFlatInnerDims(
   return out_dims;
 }
 
-gtl::InlinedVector<int64, 4> Tensor::ComputeFlatOuterDims(
-    gtl::ArraySlice<int64> orig, int64 num_out_dims) {
+gtl::InlinedVector<int64, 4> Tensor::ComputeFlatOuterDims(gtl::ArraySlice<int64> orig,
+                                                          int64 num_out_dims) {
+
   gtl::InlinedVector<int64, 4> out_dims(num_out_dims, 0);
   for (int64 out_dim = 0; out_dim <= num_out_dims - 1; ++out_dim) {
     out_dims[out_dim] = out_dim >= orig.size() ? 1 : orig[out_dim];

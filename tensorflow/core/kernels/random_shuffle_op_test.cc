@@ -1,0 +1,67 @@
+/* Copyright 2015 The TensorFlow Authors. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================*/
+
+#include <functional>
+#include <memory>
+#include <vector>
+
+#include <thread>         // std::this_thread::sleep_for
+#include <chrono>
+
+#include "tensorflow/core/common_runtime/kernel_benchmark_testlib.h"
+#include "tensorflow/core/common_runtime/graph_runner.h"
+#include "tensorflow/core/framework/allocator.h"
+#include "tensorflow/core/framework/op_kernel.h"
+#include "tensorflow/core/framework/tensor.h"
+#include "tensorflow/core/framework/types.h"
+#include "tensorflow/core/framework/types.pb.h"
+#include "tensorflow/core/framework/fake_input.h"
+#include "tensorflow/core/graph/node_builder.h"
+#include "tensorflow/core/graph/testlib.h"
+#include "tensorflow/core/kernels/ops_testutil_2.h"
+#include "tensorflow/core/kernels/ops_util.h"
+#include "tensorflow/core/lib/core/status_test_util.h"
+#include "tensorflow/core/platform/prefetch.h"
+#include "tensorflow/core/platform/test.h"
+#include "tensorflow/core/platform/test_benchmark.h"
+
+
+namespace tensorflow {
+
+class RandomShuffleOpTestOnCpu : public OpsTestOnCpu{
+};
+
+
+TEST_F(RandomShuffleOpTestOnCpu, SimpleTest){
+  TF_EXPECT_OK(NodeDefBuilder("random_shuffle", "RandomShuffle")
+                      .Input(FakeInput(DT_INT32))
+                      .Finalize(node_def()));
+  //CHECK(false);
+  int i = 0;
+  while(++i < 10){
+    //std::this_thread::sleep_for(std::chrono::seconds(1));
+    //std::cout << "why not!";
+  }
+
+  TF_EXPECT_OK(InitOp());
+  AddInputFromArray<int>(TensorShape({3,3,3}), {1,2,3,4,5,6,7,8,9, 10,11,12,13,14,15,16,17,18, 19,20,21,22,23,24,25,26,27});
+
+  TF_EXPECT_OK(RunOpKernel());
+}
+
+
+
+
+}

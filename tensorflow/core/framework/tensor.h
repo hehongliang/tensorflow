@@ -115,6 +115,9 @@ class Tensor {
 
   ~Tensor();
 
+
+  string AllocatorName() const {return allocator_name_;}
+
   /// Returns the data type.
   DataType dtype() const { return shape_.data_type(); }
 
@@ -454,6 +457,7 @@ class Tensor {
 
   TensorShape shape_;
   TensorBuffer* buf_;
+  string allocator_name_;
 
   friend class DMAHelper;
   friend class TensorCApi;
@@ -657,11 +661,13 @@ typename TTypes<T, NDIMS>::Tensor Tensor::flat_inner_dims() {
 
 template <typename T, size_t NDIMS>
 typename TTypes<T, NDIMS>::Tensor Tensor::flat_outer_dims() {
+
   return shaped<T, NDIMS>(ComputeFlatOuterDims(shape_.dim_sizes(), NDIMS));
 }
 
 template <typename T, size_t NDIMS>
 typename TTypes<T, NDIMS>::Tensor Tensor::flat_inner_outer_dims(int64 begin) {
+
   gtl::InlinedVector<int64,4> flat_outer = ComputeFlatOuterDims(
       shape_.dim_sizes(), begin + NDIMS);
   return shaped<T, NDIMS>(ComputeFlatInnerDims(flat_outer, NDIMS));

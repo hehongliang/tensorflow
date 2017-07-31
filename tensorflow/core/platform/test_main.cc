@@ -26,12 +26,21 @@ limitations under the License.
 
 #include <iostream>
 
+#include <thread>         // std::this_thread::sleep_for
+#include <chrono>
+
 #include "tensorflow/core/lib/core/stringpiece.h"
 #include "tensorflow/core/platform/test.h"
 #include "tensorflow/core/platform/test_benchmark.h"
 
 GTEST_API_ int main(int argc, char** argv) {
-  std::cout << "Running main() from test_main.cc\n";
+  std::cout << "Running main() from test_main.cc what's the fuck\n";
+
+  int i = 0;
+  while(++i < 10){
+    //std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::cout << "why not!";
+  }
 
   testing::InitGoogleTest(&argc, argv);
   for (int i = 1; i < argc; i++) {

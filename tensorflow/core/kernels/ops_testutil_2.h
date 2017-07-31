@@ -42,6 +42,8 @@ public:
   //"gpu" or "cpu" or "sycl"
   OpsTestBase2(const char * device_type)
     : device_type_(device_type) {
+
+    CHECK(DeviceFactory::GetFactory(device_type) != nullptr);
     device_.reset(
       DeviceFactory::NewDevice(device_type_.type_string(),
                                {},
@@ -78,6 +80,7 @@ public:
     bool is_ref = IsRefType(input_types_[input_types_.size()]);
     Tensor * input =
       new Tensor(device_->GetAllocator(AllocatorAttributes()), DataTypeToEnum<T>::v(), shape);
+
     test::FillFn(input, input_mapping);
     tensors_.push_back(input);
     if(is_ref){
@@ -96,6 +99,8 @@ public:
     bool is_ref = IsRefType(input_types_[inputs_.size()]);
     Tensor * input  = new Tensor(device_->GetAllocator(AllocatorAttributes()),
                                  DataTypeToEnum<T>::v(), shape);
+
+    LOG(INFO)<<"Tensor Allocator Name = " + input->AllocatorName();
     test::FillValues<T>(input, data);
     tensors_.push_back(input);
     if(is_ref){
