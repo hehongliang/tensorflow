@@ -420,8 +420,21 @@ public:
       const auto input_mat = input.flat_outer_dims<T>();
       auto output_mat = output->flat_outer_dims<T>();
 
+      if (input.dims() == 1) {
+        // For 1D data, copy and then shuffle in place
+        context->set_output(0, tensor::DeepCopy(input));
+        auto vec = context->mutable_output(0)->vec<T>();
 #if GOOGLE_CUDA
-      if(std::is_same<Device, GPUDevice>::value){
+        if(std::is_same<Device, GPUDevice>::value){
+          RandomShuffleVectorGPU<T>(context, &output_mat, generator_);
+          return;
+        }
+#endif
+        RandomShuffleCPU<T>(context, vec.data(), vec.data() + size, uniform);
+      } else {
+        // For >= 2D, shuffle indices and then copy across
+#if GOOGLE_CUDA
+        if(std::is_same<Device, GPUDevice>::value){
         Tensor* permutation = nullptr;
         OP_REQUIRES_OK(context,
                        context->allocate_tmp(DataTypeToEnum(int64),
@@ -432,7 +445,12 @@ public:
         return ;
       }
 #endif
-      RandomShuffleCPU<T>(context, input_mat, &output_mat, generator_);
+        RandomShuffleCPU<T>(context, input_mat, &output_mat, generator_);
+      }
+
+
+
+
     }
   }
 
