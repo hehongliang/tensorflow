@@ -185,8 +185,15 @@ void RandomShuffleGPU(OpKernelContext* c,
                       typename TTypes<T, 1>::Flat* permutation,
                       typename TTypes<T, 2>::Matrix* output,
                       GuardedPhiloxRandom& generator){
-  MergeRandomShuffleGPU(c, permutation, generator);
+  RandomShuffleVectorGPU(c, permutation, generator);
   Assign<T>(inputs_matrix, permutation, output);
+}
+
+template<typename T>
+void RandomShuffleVectorGPU(OpKernelContext* c,
+                      typename TTypes<T, 1>::Flat* permutation,
+                      GuardedPhiloxRandom& generator){
+  MergeRandomShuffleGPU(c, permutation, generator);
 }
 
 #endif
