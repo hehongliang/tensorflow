@@ -29,6 +29,17 @@ limitations under the License.
 
 namespace tensorflow {
 
+typedef Eigen::ThreadPoolDevice CPUDevice;
+
+#if GOOGLE_CUDA
+typedef Eigen::GpuDevice GPUDevice;
+#endif  // GOOGLE_CUDA
+
+#ifdef TENSORFLOW_USE_SYCL
+typedef Eigen::SyclDevice SYCLDevice;
+#endif // TENSORFLOW_USE_SYCL
+
+
 // TODO(irving): If performance is critical, generate output directly instead
 // of an in-place shuffle using a pseudorandom permutation like
 //
@@ -175,7 +186,7 @@ static void DebugPrintTensor(const Tensor& t){
   std::cout<<" T ="<<DataTypeToEnum<T>::v()<<std::endl;
 
   PrintTensor(t);
-  PrintEigenTensor<T, 1>(t.flat<T>());
+  //PrintEigenTensor<T, 1>(t.flat<T>());
   /*PrintEigenTensor<T, 1>(t.shaped<T, 1>({t.NumElements()}));
   PrintEigenTensor<T, 2>(t.shaped<T, 2>({3, t.NumElements() / 3}));
   PrintEigenTensor<T, 2>(t.flat_inner_dims<T, 2>());
@@ -281,41 +292,7 @@ class RandomShuffleOp : public OpKernel {
   }
 
   void Compute(OpKernelContext* context) override {
-    std::cout<<"we are in new kernel now!";
-
     const Tensor& input = context->input(0);
-    my_dbg::DebugPrintTensor<T>(input);
-
-    if (input.NumElements() <= 1 || input.dim_size(0) <= 1) {
-      // No shuffling is required, so copy input directly to output
-      context->set_output(0, input);
-    } else {
-
-      // Reserve enough random samples for shuffling
-      const int64 size = input.dim_size(0);
-      const int64 samples = size - 1;
-      auto local_gen = generator_.ReserveSamples32(samples);
-      random::SingleSampleAdapter<random::PhiloxRandom> single(&local_gen);
-      const std::function<int64(uint32)>& uniform = [&single](uint32 n) { return single() % n; };
-
-      Tensor* output = nullptr;
-      OP_REQUIRES_OK(context,
-                     context->allocate_output(0, input.shape(), &output));
-      const auto input_mat = input.flat_outer_dims<T>();
-      auto output_mat = output->flat_outer_dims<T>();
-      RandomShuffleCPU<T>(context, input_mat, &output_mat, uniform);
-      my_dbg::DebugPrintTensor<T>(*output);
-    }
-
-
-    //my_dbg::DebugPhiloxRandom(generator_);
-  }
-
-  void Compute2(OpKernelContext* context) {
-
-    std::cout<<"we are in kernel now!";
-    const Tensor& input = context->input(0);
-    my_dbg::DebugPrintTensor<T>(input);
 
     if (input.NumElements() <= 1 || input.dim_size(0) <= 1) {
       // No shuffling is required, so copy input directly to output
@@ -332,7 +309,6 @@ class RandomShuffleOp : public OpKernel {
         // For 1D data, copy and then shuffle in place
         context->set_output(0, tensor::DeepCopy(input));
         auto vec = context->mutable_output(0)->vec<T>();
-
         RandomShuffle(vec.data(), vec.data() + size, uniform);
       } else {
         // For >= 2D, shuffle indices and then copy across
@@ -346,13 +322,9 @@ class RandomShuffleOp : public OpKernel {
         } else {
           IndexedShuffle<int64>(size, input_mat, output_mat, uniform);
         }
-
-        my_dbg::DebugPrintTensor<T>(*output);
-
       }
     }
 
-    my_dbg::DebugPhiloxRandom(generator_);
   }
 
  private:
@@ -364,5 +336,119 @@ class RandomShuffleOp : public OpKernel {
       Name("RandomShuffle").Device(DEVICE_CPU).TypeConstraint<T>("T"), \
       RandomShuffleOp<T>);
 TF_CALL_ALL_TYPES(REGISTER)
+#undef REGISTER
+
+
+//
+// RandomShuffleV2Op
+//
+template <typename T>
+class RandomShuffleV2Op : public OpKernel {
+public:
+  explicit RandomShuffleV2Op(OpKernelConstruction* context) : OpKernel(context) {
+    OP_REQUIRES_OK(context, generator_.Init(context));
+  }
+
+  void Compute(OpKernelContext* context) override {
+    const Tensor& input = context->input(0);
+
+    if (input.NumElements() <= 1 || input.dim_size(0) <= 1) {
+      // No shuffling is required, so copy input directly to output
+      context->set_output(0, input);
+    } else {
+      // Reserve enough random samples for shuffling
+      const int64 size = input.dim_size(0);
+      const int64 samples = size - 1;
+      auto local_gen = generator_.ReserveSamples32(samples);
+      random::RandomBitsAdapter<random::PhiloxRandom> randomBits(&local_gen);
+      const auto uniform = [&randomBits](uint32 n) { return randomBits(n); };
+
+      if (input.dims() == 1) {
+        // For 1D data, copy and then shuffle in place
+        context->set_output(0, tensor::DeepCopy(input));
+        auto vec = context->mutable_output(0)->vec<T>();
+        RandomShuffle(vec.data(), vec.data() + size, uniform);
+      } else {
+        // For >= 2D, shuffle indices and then copy across
+        Tensor* output = nullptr;
+        OP_REQUIRES_OK(context,
+                       context->allocate_output(0, input.shape(), &output));
+        const auto input_mat = input.flat_outer_dims<T>();
+        auto output_mat = output->flat_outer_dims<T>();
+        if (size < kint32max) {
+          IndexedShuffle<int32>(size, input_mat, output_mat, uniform);
+        } else {
+          IndexedShuffle<int64>(size, input_mat, output_mat, uniform);
+        }
+      }
+    }
+
+  }
+
+private:
+  GuardedPhiloxRandom generator_;
+};
+
+#define REGISTER(T)                                                    \
+  REGISTER_KERNEL_BUILDER(                                             \
+      Name("RandomShuffleV2").Device(DEVICE_CPU).TypeConstraint<T>("T"), \
+      RandomShuffleV2Op<T>);
+TF_CALL_ALL_TYPES(REGISTER)
+#undef REGISTER
+
+
+
+//
+// RandomShuffleV2Op
+//
+template <typename Device, typename T>
+class RandomShuffleV3Op : public OpKernel {
+public:
+  explicit RandomShuffleV3Op(OpKernelConstruction* context) : OpKernel(context) {
+    OP_REQUIRES_OK(context, generator_.Init(context));
+  }
+
+  void Compute(OpKernelContext* context) override {
+    const Tensor& input = context->input(0);
+    if (input.NumElements() <= 1 || input.dim_size(0) <= 1) {
+      // No shuffling is required, so copy input directly to output
+      context->set_output(0, input);
+    } else {
+      Tensor* output = nullptr;
+      OP_REQUIRES_OK(context,
+                     context->allocate_output(0, input.shape(), &output));
+      const auto input_mat = input.flat_outer_dims<T>();
+      auto output_mat = output->flat_outer_dims<T>();
+
+#if GOOGLE_CUDA
+      if(std::is_same<Device, GPUDevice>::value){
+        Tensor* permutation = nullptr;
+        OP_REQUIRES_OK(context,
+                       context->allocate_tmp(DataTypeToEnum(int64),
+                                             TensorShape({input.shape().dimension(0)}),
+                                             &permutation));
+
+        RandomShuffleGPU<T>(context, input_mat, permutation.vec(), &output_mat, generator_);
+        return ;
+      }
+#endif
+      RandomShuffleCPU<T>(context, input_mat, &output_mat, generator_);
+    }
+  }
+
+
+private:
+  GuardedPhiloxRandom generator_;
+};
+
+
+#define REGISTER(T)                                                    \
+  REGISTER_KERNEL_BUILDER(                                             \
+      Name("RandomShuffleV3").Device(DEVICE_CPU).TypeConstraint<T>("T"), \
+      RandomShuffleV3Op<T>);
+TF_CALL_ALL_TYPES(REGISTER)
+#undef REGISTER
+
+
 
 }  // namespace tensorflow

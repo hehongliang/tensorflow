@@ -197,6 +197,69 @@ output: A tensor of same shape and type as `value`, shuffled along its first
   dimension.
 )doc");
 
+
+REGISTER_OP("RandomShuffleV2")
+.Input("value: T")
+.SetIsStateful()
+.Output("output: T")
+.Attr("seed: int = 0")
+.Attr("seed2: int = 0")
+.Attr("T: type")
+.SetShapeFn(shape_inference::UnchangedShape)
+.Doc(R"doc(
+Randomly shuffles a tensor along its first dimension.
+
+  The tensor is shuffled along dimension 0, such that each `value[j]` is mapped
+  to one and only one `output[i]`. For example, a mapping that might occur for a
+  3x2 tensor is:
+
+```
+[[1, 2],       [[5, 6],
+ [3, 4],  ==>   [1, 2],
+ [5, 6]]        [3, 4]]
+```
+
+value: The tensor to be shuffled.
+seed: If either `seed` or `seed2` are set to be non-zero, the random number
+  generator is seeded by the given seed.  Otherwise, it is seeded by a
+  random seed.
+seed2: A second seed to avoid seed collision.
+
+output: A tensor of same shape and type as `value`, shuffled along its first
+  dimension.
+)doc");
+
+REGISTER_OP("RandomShuffleV3")
+.Input("value: T")
+.SetIsStateful()
+.Output("output: T")
+.Attr("seed: int = 0")
+.Attr("seed2: int = 0")
+.Attr("T: type")
+.SetShapeFn(shape_inference::UnchangedShape)
+.Doc(R"doc(
+Randomly shuffles a tensor along its first dimension.
+
+  The tensor is shuffled along dimension 0, such that each `value[j]` is mapped
+  to one and only one `output[i]`. For example, a mapping that might occur for a
+  3x2 tensor is:
+
+```
+[[1, 2],       [[5, 6],
+ [3, 4],  ==>   [1, 2],
+ [5, 6]]        [3, 4]]
+```
+
+value: The tensor to be shuffled.
+seed: If either `seed` or `seed2` are set to be non-zero, the random number
+  generator is seeded by the given seed.  Otherwise, it is seeded by a
+  random seed.
+seed2: A second seed to avoid seed collision.
+
+output: A tensor of same shape and type as `value`, shuffled along its first
+  dimension.
+)doc");
+
 REGISTER_OP("Multinomial")
     .SetIsStateful()
     .Input("logits: T")

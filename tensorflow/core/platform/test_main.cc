@@ -36,11 +36,11 @@ limitations under the License.
 GTEST_API_ int main(int argc, char** argv) {
   std::cout << "Running main() from test_main.cc what's the fuck\n";
 
-  int i = 0;
-  while(++i < 10){
+  //int i = 0;
+  //while(++i < 10){
     //std::this_thread::sleep_for(std::chrono::seconds(1));
-    std::cout << "why not!";
-  }
+    //std::cout << "why not!";
+  //}
 
   testing::InitGoogleTest(&argc, argv);
   for (int i = 1; i < argc; i++) {

@@ -193,6 +193,77 @@ class UniformDistribution<Generator, int64> {
   uint64 range_;
 };
 
+template <typename Generator>
+class RandomBitsAdapter {
+public:
+  static const int kResultElementCount = 1;
+  // The number of elements that will be returned by the underlying generator.
+  static const int kNativeElementCount = Generator::kResultElementCount;
+  typedef typename Generator::ResultElementType ResultType;
+  typedef typename Generator::ResultElementType ResultElementType;
+  static const int ResultElementTypeBits = sizeof(ResultElementType) * 8;
+
+public:
+  PHILOX_DEVICE_INLINE
+  explicit RandomBitsAdapter(Generator * gen)
+    : generator_(gen)
+    , used_result_index_(Generator::kResultElementCount)
+    , bits_consumed_(0){
+  }
+
+  PHILOX_DEVICE_INLINE
+  ResultType operator()(uint32 n){
+    return uniform(n);
+  }
+
+private:
+  PHILOX_DEVICE_INLINE
+  ResultType uniform(uint32 n){
+    int bits_to_consume = 0;
+    uint32 bits_mask = 0;
+
+    if(n <= std::numeric_limits<uint8>::max() + 1){
+      if(n == 2){
+        bits_to_consume = 1;
+        bits_mask = 1;
+      }else {
+        bits_to_consume = 8;
+        bits_mask = std::numeric_limits<uint8>::max();
+      }
+    }else{
+      if(n <= std::numeric_limits<uint16>::max() + 1){
+        bits_to_consume = 16;
+        bits_mask = std::numeric_limits<uint16>::max();
+      }else{
+        bits_to_consume = 32;
+        bits_mask = std::numeric_limits<uint32>::max();
+      }
+    }
+
+    if(bits_consumed_ + bits_to_consume > ResultElementTypeBits){
+      used_result_index_ +=1;
+      bits_consumed_ = 0;
+    }
+
+    if(used_result_index_ == kNativeElementCount ){
+      unused_results_ = (*generator_)();
+      used_result_index_ = 0;
+      bits_consumed_ = 0;
+    }
+
+    bits_consumed_ += bits_to_consume;
+    auto shift = ResultElementTypeBits - bits_consumed_;
+    ResultType random =  static_cast<ResultType>((unused_results_[used_result_index_] >> shift) & bits_mask);
+    return random % n;
+  }
+
+private:
+  Generator* generator_;
+  typename Generator::ResultType unused_results_;
+  int used_result_index_;
+  int bits_consumed_;
+};
+
 // A class that adapts the underlying native multiple samples to return a single
 // sample at a time.
 template <class Generator>
