@@ -9,6 +9,17 @@ namespace tensorflow {
 namespace{
 class ShuffleHelper{
 public:
+
+template<typename T>
+__device__ static T max(T x, T y){
+  return x > y ? x : y;
+}
+
+template<typename T>
+__device__ static T min(T x, T y){
+  return x < y ? x : y;
+}
+
 template<typename T>
 __device__ static void init_permutation(T * permutation, int64 size){
   for(int64 i = 0; i < size; i++){
@@ -56,20 +67,37 @@ __device__ void merge(T * permutation, int64 start, int64 next, int64 end, Unifo
 }
 
 template<typename T>
-__global__ void map(const T * source, int64 size, T * target, T * mapper, int64 count){
-  int64 concurrence = blockDim.x * threadDim.x;
-  int64 scope = count / concurrence;
-  int64 index = blockId.x * blockDim.x + threadId.x;
-
-  int64 batch_size = size / count;
-  for(int i = index * scope; i < (index + 1)*scope; i++){
-    int f = mapper[i];
-    for(int j = 0; j < batch_size; j++){
+__device__ void map_block(int block_size, const T * source, int s_index, T * target, int t_index){
+  int i = t_index * block_size;
+  int j = s_index * block_size;
+  int offset = 0;
+  while(offset < block_size){
 #program unroll
-      target[i * batch_size + j] = source[f * batch_size + j];
-    }
+    target[j + offset] = source[i + offset];
+    offset++;
   }
 }
+
+template<typename T>
+__global__ void map_block_kernel(const T * source, int64 size, const int64 * mapper, int64 count, T * target){
+  int64 thread_count = blockDim.x * threadDim.x;
+  int64 thread_scope = ceil(count / thread_count);
+
+  int64 thread_index = blockId.x * threadDim.x + threadId.x;
+  int64 first_block = thread_index * thread_scope;
+  if(first_block >= count){
+    return;
+  }
+
+  int64 last_block = first_block + thread_scope;
+  last_block = ShuffleHelper::min(last_block, count);
+
+  int64 block_size = size / count;
+  for(int64 i = first_block; i < last_block; i++){
+    map_block(block_size, source, i, target, mapper[i]);
+  }
+}
+
 
 template<typename T>
 __host__ T FloorToPowOfTwo(T x){
@@ -82,8 +110,6 @@ __host__ T FloorToPowOfTwo(T x){
 }
 
 };
-
-}//namespace
 
 
 template<typename T, typename Uniform>
@@ -121,7 +147,11 @@ __global__ void merge_shuffle_kernel(T * permutation, int64 size, int64 batch_si
 }
 
 template<typename T>
-void MergeRandomShuffleGPU(OpKernelContext* c, typename TTypes<T, 1>::Flat * permutation, bool need_init, GuardedPhiloxRandom& generator){
+void MergeRandomShuffleGPU(OpKernelContext* c,
+                           typename TTypes<T, 1>::Vec * permutation,
+                           bool need_init,
+                           GuardedPhiloxRandom& generator){
+
   auto d = c->eigen_gpu_device();
   const int max_physical_processor_count = d.getNumCudaMultiProcessors();
   const int max_thread_per_physical_processor = d.maxCudaThreadsPerMultiProcessor();
@@ -173,28 +203,59 @@ void MergeRandomShuffleGPU(OpKernelContext* c, typename TTypes<T, 1>::Flat * per
 }
 
 template<typename T>
-void Assign(const typename TTypes<T, 2>::ConstMatrix& inputs_matrix,
-            typename TTypes<T, 1>::Flat* permutation,
+void Assign(OpKernelContext* c,
+            const typename TTypes<T, 2>::ConstMatrix& inputs_matrix,
+            typename TTypes<int64, 1>::Vec* permutation,
             typename TTypes<T, 2>::Matrix* output){
-  ShuffleHelper::map_kernel<<<>>>(inputs_matrix.data(), permutation->data(), output->data(), permutation->dimension(0));
+
+  auto d = c->eigen_gpu_device();
+  const int max_physical_processor_count = d.getNumCudaMultiProcessors();
+  const int max_thread_per_physical_processor = d.maxCudaThreadsPerMultiProcessor();
+  const int physical_thread_count = max_physical_processor_count * max_thread_per_physical_processor;
+
+  int total = permutation->dimension(0);
+  int concurrence = std::min(physical_thread_count, total);
+  int threads_per_block = std::min(max_thread_per_physical_processor, total);
+  int blocks = std::ceil(concurrence / threads_per_block);
+  ShuffleHelper::map_block_kernel<<<blocks, threads_per_block, 0, d->stream()>>>>(inputs_matrix.data(),
+                                                                                  inputs_matrix.size(),
+                                                                                  permutation->data(),
+                                                                                  permutation->size(),
+                                                                                  output->data());
 }
+
+}//namespace
+
+
+
+template<typename T>
+void RandomShuffleVectorGPU(OpKernelContext* c,
+                      typename TTypes<T, 1>::Vec* permutation,
+                      GuardedPhiloxRandom& generator){
+  MergeRandomShuffleGPU(c, permutation, false, generator);
+}
+
 
 template<typename T>
 void RandomShuffleGPU(OpKernelContext* c,
                       const typename TTypes<T, 2>::ConstMatrix& inputs_matrix,
-                      typename TTypes<T, 1>::Flat* permutation,
+                      typename TTypes<T, 1>::Vec* permutation,
                       typename TTypes<T, 2>::Matrix* output,
                       GuardedPhiloxRandom& generator){
-  RandomShuffleVectorGPU(c, permutation, generator);
+  MergeRandomShuffleGPU(c, permutation, true, generator);
   Assign<T>(inputs_matrix, permutation, output);
 }
 
-template<typename T>
-void RandomShuffleVectorGPU(OpKernelContext* c,
-                      typename TTypes<T, 1>::Flat* permutation,
-                      GuardedPhiloxRandom& generator){
-  MergeRandomShuffleGPU(c, permutation, generator);
-}
+#define REGISTER(T)                                                             \
+    template void RandomShuffleGPU<T>(                                          \
+                      OpKernelContext* c,                                       \
+                      const typename TTypes<T, 2>::ConstMatrix& inputs_matrix,  \
+                      typename TTypes<T, 1>::Vec* permutation,                  \
+                      typename TTypes<T, 2>::Matrix* output,                    \
+                      GuardedPhiloxRandom& generator);
+TF_CALL_ALL_TYPES(REGISTER)
+#undef REGISTER
+
 
 #endif
 

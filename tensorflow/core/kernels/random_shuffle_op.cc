@@ -283,7 +283,6 @@ void DebugPhiloxRandom(GuardedPhiloxRandom& random){
 }
 
 
-
 template <typename T>
 class RandomShuffleOp : public OpKernel {
  public:
@@ -399,7 +398,7 @@ TF_CALL_ALL_TYPES(REGISTER)
 
 
 //
-// RandomShuffleV2Op
+// RandomShuffleV3Op
 //
 template <typename Device, typename T>
 class RandomShuffleV3Op : public OpKernel {
@@ -410,29 +409,31 @@ public:
 
   void Compute(OpKernelContext* context) override {
     const Tensor& input = context->input(0);
+    const int64 size = input.dim_size(0);
+
     if (input.NumElements() <= 1 || input.dim_size(0) <= 1) {
       // No shuffling is required, so copy input directly to output
       context->set_output(0, input);
     } else {
-      Tensor* output = nullptr;
-      OP_REQUIRES_OK(context,
-                     context->allocate_output(0, input.shape(), &output));
-      const auto input_mat = input.flat_outer_dims<T>();
-      auto output_mat = output->flat_outer_dims<T>();
-
       if (input.dims() == 1) {
         // For 1D data, copy and then shuffle in place
         context->set_output(0, tensor::DeepCopy(input));
         auto vec = context->mutable_output(0)->vec<T>();
 #if GOOGLE_CUDA
         if(std::is_same<Device, GPUDevice>::value){
-          RandomShuffleVectorGPU<T>(context, &output_mat, generator_);
+          RandomShuffleVectorGPU<T>(context, &vec, generator_);
           return;
         }
 #endif
-        RandomShuffleCPU<T>(context, vec.data(), vec.data() + size, uniform);
+        RandomShuffleVectorCPU<T>(context, &vec, generator_);
       } else {
         // For >= 2D, shuffle indices and then copy across
+        Tensor* output = nullptr;
+        OP_REQUIRES_OK(context,
+                       context->allocate_output(0, input.shape(), &output));
+        const auto input_mat = input.flat_outer_dims<T>();
+        auto output_mat = output->flat_outer_dims<T>();
+
 #if GOOGLE_CUDA
         if(std::is_same<Device, GPUDevice>::value){
         Tensor* permutation = nullptr;
@@ -447,10 +448,6 @@ public:
 #endif
         RandomShuffleCPU<T>(context, input_mat, &output_mat, generator_);
       }
-
-
-
-
     }
   }
 
@@ -460,12 +457,23 @@ private:
 };
 
 
-#define REGISTER(T)                                                    \
-  REGISTER_KERNEL_BUILDER(                                             \
-      Name("RandomShuffleV3").Device(DEVICE_CPU).TypeConstraint<T>("T"), \
-      RandomShuffleV3Op<T>);
+#define REGISTER(T)                                                       \
+  REGISTER_KERNEL_BUILDER(                                                \
+      Name("RandomShuffleV3").Device(DEVICE_CPU).TypeConstraint<T>("T"),  \
+      RandomShuffleV3Op<CPUDevice, T>);
 TF_CALL_ALL_TYPES(REGISTER)
 #undef REGISTER
+
+
+#if GOOGLE_CUDA
+#define REGISTER_GPU(T)                                                 \
+  REGISTER_KERNEL_BUILDER(                                              \
+      Name().Device(DEVICE_GPU).TypeConstraint<T>("T"),                 \
+      RandomShuffleV3Op<GPUDevice, T>);
+TF_CALL_ALL_TYPES(REGISTER_GPU)
+#undef REGISTER_GPU
+#endif
+
 
 
 

@@ -101,7 +101,7 @@ static void BM_RandomShuffleInt32Cube(int iters, int dim){
   RandomShuffleHelper<int32>(iters, dim, 3);
 }
 
-//BENCHMARK(BM_RandomShuffleInt32Vector)->Arg(1000)->Arg(100000)->Arg(1000000);
+BENCHMARK(BM_RandomShuffleInt32Vector)->Arg(1000)->Arg(100000)->Arg(1000000);
 //BENCHMARK(BM_RandomShuffleInt32Matrix)->Arg(1000)->Arg(100000)->Arg(1000000);
 //BENCHMARK(BM_RandomShuffleInt32Cube)->Arg(1000)->Arg(100000)->Arg(1000000);
 
@@ -141,7 +141,7 @@ static void BM_RandomShuffleV2Int32Cube(int iters, int dim){
   RandomShuffleV2Helper<int32>(iters, dim, 3);
 }
 
-BENCHMARK(BM_RandomShuffleV2Int32Vector)->Arg(1000)->Arg(10000)->Arg(100000)->Arg(1000000)->Arg(10000000)->Arg(100000000)->Arg(1000000000);
+//BENCHMARK(BM_RandomShuffleV2Int32Vector)->Arg(1000)->Arg(100000)->Arg(1000000);
 //BENCHMARK(BM_RandomShuffleV2Int32Matrix)->Arg(1000)->Arg(100000)->Arg(1000000);
 //BENCHMARK(BM_RandomShuffleV2Int32Cube)->Arg(1000)->Arg(100000)->Arg(1000000);
 
@@ -180,7 +180,7 @@ static void BM_RandomShuffleV3Int32Cube(int iters, int dim){
   RandomShuffleV3Helper<int32>(iters, dim, 3);
 }
 
-BENCHMARK(BM_RandomShuffleV3Int32Vector)->Arg(1000)->Arg(10000)->Arg(100000)->Arg(1000000)->Arg(10000000)->Arg(100000000)->Arg(1000000000);
+BENCHMARK(BM_RandomShuffleV3Int32Vector)->Arg(1000)->Arg(100000)->Arg(1000000);
 //BENCHMARK(BM_RandomShuffleV3Int32Matrix)->Arg(1000)->Arg(100000)->Arg(1000000);
 //BENCHMARK(BM_RandomShuffleV3Int32Cube)->Arg(1000)->Arg(100000)->Arg(1000000);
 

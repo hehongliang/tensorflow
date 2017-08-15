@@ -8,6 +8,12 @@
 
 namespace tensorflow{
 
+
+template<typename T>
+void RandomShuffleVectorCPU(OpKernelContext * c,
+                            typename TTypes<T, 1>::Vec* permutation,
+                            GuardedPhiloxRandom& generator);
+
 template<typename T>
 void RandomShuffleCPU(OpKernelContext * c,
                       const typename TTypes<T, 2>::ConstMatrix& input_matrix,
@@ -16,10 +22,16 @@ void RandomShuffleCPU(OpKernelContext * c,
 
 
 #if GOOGLE_CUDA
+
+template<typename T>
+void RandomShuffleVectorGPU(OpKernelContext* c,
+                            typename TTypes<T, 1>::Vec* permutation,
+                            GuardedPhiloxRandom& generator);
+
 template<typename T>
 void RandomShuffleGPU(OpKernelContext* c,
                       const typename TTypes<T, 2>::ConstMatrix& inputs_matrix,
-                      typename TTypes<T, 1>::Flat& permutation,
+                      typename TTypes<T, 1>::Vec& permutation,
                       typename TTypes<T, 2>::Matrix* output,
                       GuardedPhiloxRandom& generator);
 #endif
