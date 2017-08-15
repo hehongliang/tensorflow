@@ -31,8 +31,8 @@ void RandomShuffleVectorGPU(OpKernelContext* c,
 template<typename T>
 void RandomShuffleGPU(OpKernelContext* c,
                       const typename TTypes<T, 2>::ConstMatrix& inputs_matrix,
-                      typename TTypes<T, 1>::Vec& permutation,
-                      typename TTypes<T, 2>::Matrix* output,
+                      typename TTypes<int64, 1>::Vec * permutation,
+                      typename TTypes<T, 2>::Matrix * output,
                       GuardedPhiloxRandom& generator);
 #endif
 

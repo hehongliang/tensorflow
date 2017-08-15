@@ -409,7 +409,7 @@ public:
 
   void Compute(OpKernelContext* context) override {
     const Tensor& input = context->input(0);
-    const int64 size = input.dim_size(0);
+    //const int64 size = input.dim_size(0);
 
     if (input.NumElements() <= 1 || input.dim_size(0) <= 1) {
       // No shuffling is required, so copy input directly to output
@@ -436,13 +436,13 @@ public:
 
 #if GOOGLE_CUDA
         if(std::is_same<Device, GPUDevice>::value){
-        Tensor* permutation = nullptr;
+        Tensor permutation;
         OP_REQUIRES_OK(context,
-                       context->allocate_tmp(DataTypeToEnum(int64),
-                                             TensorShape({input.shape().dimension(0)}),
+                       context->allocate_temp(DataTypeToEnum<int64>::v(),
+                                             TensorShape({input.dim_size(0)}),
                                              &permutation));
-
-        RandomShuffleGPU<T>(context, input_mat, permutation.vec(), &output_mat, generator_);
+	auto eigen_vec = permutation.vec<int64>();
+        RandomShuffleGPU<T>(context, input_mat, &eigen_vec, &output_mat, generator_);
         return ;
       }
 #endif
@@ -468,9 +468,12 @@ TF_CALL_ALL_TYPES(REGISTER)
 #if GOOGLE_CUDA
 #define REGISTER_GPU(T)                                                 \
   REGISTER_KERNEL_BUILDER(                                              \
-      Name().Device(DEVICE_GPU).TypeConstraint<T>("T"),                 \
+      Name("RandomShuffleV3").Device(DEVICE_GPU).TypeConstraint<T>("T"),                 \
       RandomShuffleV3Op<GPUDevice, T>);
-TF_CALL_ALL_TYPES(REGISTER_GPU)
+TF_CALL_GPU_NUMBER_TYPES(REGISTER_GPU);
+REGISTER_GPU(bfloat16);
+TF_CALL_complex64(REGISTER_GPU);
+TF_CALL_complex128(REGISTER_GPU);
 #undef REGISTER_GPU
 #endif
 

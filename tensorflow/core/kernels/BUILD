@@ -119,19 +119,19 @@ tf_kernel_library(
 
 tf_kernel_library(
     name = "random_shuffle_lib",
-    srcs = [
-        "random_shuffle_lib_cpu.cc",
+    srcs=[
+     	"random_shuffle_lib.cc",
+	"random_shuffle_lib_cpu.cc"
     ],
-
-    hdrs = [
-        "random_shuffle_lib.h",
+    hdrs=[
+    	"random_shuffle_lib.h"
     ],
-
-    gpu_srcs = [
-        "random_shuffle_lib.h",
-        "random_shuffle_lib_gpu.cu.cc",
+    gpu_srcs=[
+    	"random_shuffle_lib.h",
+    	"random_shuffle_lib_gpu_impl.cu.cc",
+	"cuda_device_array.h",
+	"cuda_device_array_gpu.h",
     ],
-
     deps = [
         ":bounds_check",
         "//tensorflow/core:framework",
@@ -862,7 +862,7 @@ tf_cc_test(
     ]
 )
 
-tf_cc_test(
+tf_cuda_cc_test(
     name = "random_shuffle_op_test",
     size = "small",
     srcs = ["random_shuffle_op_test.cc"],
