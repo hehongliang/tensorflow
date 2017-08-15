@@ -263,10 +263,7 @@ void RandomShuffleVectorGPU(OpKernelContext * c,
 
 #define REGISTER_GPU(T)    											\
   template void RandomShuffleVectorGPU<T>(OpKernelContext *, typename TTypes<T, 1>::Vec*, GuardedPhiloxRandom&);
-TF_CALL_GPU_NUMBER_TYPES(REGISTER_GPU);
-REGISTER_GPU(bfloat16);
-TF_CALL_complex64(REGISTER_GPU);
-TF_CALL_complex128(REGISTER_GPU);
+TF_CALL_POD_TYPES(REGISTER_GPU);
 #undef REGISTER_GPU
 
 
@@ -287,11 +284,7 @@ void RandomShuffleGPU(OpKernelContext* c,
                       typename TTypes<int64, 1>::Vec * permutation,                  \
                       typename TTypes<T, 2>::Matrix * output,                    \
                       GuardedPhiloxRandom& generator);
-TF_CALL_GPU_NUMBER_TYPES(REGISTER_GPU);
-REGISTER_GPU(bfloat16);
-TF_CALL_complex64(REGISTER_GPU);
-TF_CALL_complex128(REGISTER_GPU);
-
+TF_CALL_POD_TYPES(REGISTER_GPU);
 
 #undef REGISTER_GPU
 

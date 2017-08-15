@@ -184,4 +184,37 @@ BENCHMARK(BM_RandomShuffleV3Int32Vector)->Arg(1000)->Arg(100000)->Arg(1000000);
 //BENCHMARK(BM_RandomShuffleV3Int32Matrix)->Arg(1000)->Arg(100000)->Arg(1000000);
 //BENCHMARK(BM_RandomShuffleV3Int32Cube)->Arg(1000)->Arg(100000)->Arg(1000000);
 
+#if GOOGLE_CUDA
+template<typename T>
+void RandomShuffleV3GPUHelper(int iters, int kDim1, int kDim2){
+  testing::StopTiming();
+
+  Graph* g = new Graph(OpRegistry::Global());
+  DataType dt = DataTypeToEnum<T>::v();
+  Tensor input(dt, TensorShape({kDim1, kDim2}));
+  input.flat<T>().setRandom();
+
+  Node* node;
+  TF_CHECK_OK(
+    NodeBuilder(g->NewName("n"), "RandomShuffleV3")
+      .Input(test::graph::Constant(g, input))
+      .Attr("T", dt)
+      .Finalize(g, &node));
+
+  testing::BytesProcessed(static_cast<int64>(iters) * ((kDim1 * kDim2)) * sizeof(T));
+  testing::StartTiming();
+  test::Benchmark("gpu", g).Run(iters);
+  testing::UseRealTime();
 }
+
+static void BM_RandomShuffleV3Int32VectorGPU(int iters, int dim) {
+  RandomShuffleV3GPUHelper<int32>(iters, dim, 1);
+}
+
+BENCHMARK(BM_RandomShuffleV3Int32VectorGPU)->Arg(1000)->Arg(100000)->Arg(1000000);
+
+
+#endif
+
+}
+

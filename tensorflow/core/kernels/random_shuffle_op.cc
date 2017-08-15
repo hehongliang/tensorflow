@@ -470,10 +470,7 @@ TF_CALL_ALL_TYPES(REGISTER)
   REGISTER_KERNEL_BUILDER(                                              \
       Name("RandomShuffleV3").Device(DEVICE_GPU).TypeConstraint<T>("T"),                 \
       RandomShuffleV3Op<GPUDevice, T>);
-TF_CALL_GPU_NUMBER_TYPES(REGISTER_GPU);
-REGISTER_GPU(bfloat16);
-TF_CALL_complex64(REGISTER_GPU);
-TF_CALL_complex128(REGISTER_GPU);
+TF_CALL_POD_TYPES(REGISTER_GPU);
 #undef REGISTER_GPU
 #endif
 
