@@ -409,22 +409,25 @@ public:
 
   void Compute(OpKernelContext* context) override {
     const Tensor& input = context->input(0);
-    //const int64 size = input.dim_size(0);
-
     if (input.NumElements() <= 1 || input.dim_size(0) <= 1) {
       // No shuffling is required, so copy input directly to output
       context->set_output(0, input);
     } else {
       if (input.dims() == 1) {
         // For 1D data, copy and then shuffle in place
-        context->set_output(0, tensor::DeepCopy(input));
-        auto vec = context->mutable_output(0)->vec<T>();
 #if GOOGLE_CUDA
         if(std::is_same<Device, GPUDevice>::value){
+          Tensor* output = nullptr;
+          OP_REQUIRES_OK(context,
+                         context->allocate_output(0, input.shape(), &output));
+          auto vec = output->vec<T>();
+          DeepCopyGPU<T>(context, input.vec<T>(), vec);
           RandomShuffleVectorGPU<T>(context, &vec, generator_);
           return;
         }
 #endif
+        context->set_output(0, tensor::DeepCopy(input)); 
+        auto vec = context->mutable_output(0)->vec<T>();
         RandomShuffleVectorCPU<T>(context, &vec, generator_);
       } else {
         // For >= 2D, shuffle indices and then copy across
@@ -441,7 +444,7 @@ public:
                        context->allocate_temp(DataTypeToEnum<int64>::v(),
                                              TensorShape({input.dim_size(0)}),
                                              &permutation));
-	auto eigen_vec = permutation.vec<int64>();
+	      auto eigen_vec = permutation.vec<int64>();
         RandomShuffleGPU<T>(context, input_mat, &eigen_vec, &output_mat, generator_);
         return ;
       }

@@ -24,6 +24,11 @@ void RandomShuffleCPU(OpKernelContext * c,
 #if GOOGLE_CUDA
 
 template<typename T>
+void DeepCopyGPU(OpKernelContext * c, 
+                 const typename TTypes<T, 1>::ConstVec& source, 
+                 typename TTypes<T, 1>::Vec& target);
+
+template<typename T>
 void RandomShuffleVectorGPU(OpKernelContext* c,
                             typename TTypes<T, 1>::Vec* permutation,
                             GuardedPhiloxRandom& generator);

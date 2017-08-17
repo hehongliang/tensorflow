@@ -101,7 +101,7 @@ static void BM_RandomShuffleInt32Cube(int iters, int dim){
   RandomShuffleHelper<int32>(iters, dim, 3);
 }
 
-BENCHMARK(BM_RandomShuffleInt32Vector)->Arg(1000)->Arg(100000)->Arg(1000000);
+//BENCHMARK(BM_RandomShuffleInt32Vector)->Arg(1000)->Arg(100000)->Arg(1000000);
 //BENCHMARK(BM_RandomShuffleInt32Matrix)->Arg(1000)->Arg(100000)->Arg(1000000);
 //BENCHMARK(BM_RandomShuffleInt32Cube)->Arg(1000)->Arg(100000)->Arg(1000000);
 
@@ -180,7 +180,7 @@ static void BM_RandomShuffleV3Int32Cube(int iters, int dim){
   RandomShuffleV3Helper<int32>(iters, dim, 3);
 }
 
-BENCHMARK(BM_RandomShuffleV3Int32Vector)->Arg(1000)->Arg(100000)->Arg(1000000);
+//BENCHMARK(BM_RandomShuffleV3Int32Vector)->Arg(1000)->Arg(100000)->Arg(1000000);
 //BENCHMARK(BM_RandomShuffleV3Int32Matrix)->Arg(1000)->Arg(100000)->Arg(1000000);
 //BENCHMARK(BM_RandomShuffleV3Int32Cube)->Arg(1000)->Arg(100000)->Arg(1000000);
 
@@ -191,12 +191,13 @@ void RandomShuffleV3GPUHelper(int iters, int kDim1, int kDim2){
 
   Graph* g = new Graph(OpRegistry::Global());
   DataType dt = DataTypeToEnum<T>::v();
-  Tensor input(dt, TensorShape({kDim1, kDim2}));
+  Tensor input(dt, TensorShape({kDim1}));
   input.flat<T>().setRandom();
 
   Node* node;
   TF_CHECK_OK(
     NodeBuilder(g->NewName("n"), "RandomShuffleV3")
+      .Device("gpu")
       .Input(test::graph::Constant(g, input))
       .Attr("T", dt)
       .Finalize(g, &node));
@@ -211,7 +212,7 @@ static void BM_RandomShuffleV3Int32VectorGPU(int iters, int dim) {
   RandomShuffleV3GPUHelper<int32>(iters, dim, 1);
 }
 
-BENCHMARK(BM_RandomShuffleV3Int32VectorGPU)->Arg(1000)->Arg(100000)->Arg(1000000);
+BENCHMARK(BM_RandomShuffleV3Int32VectorGPU)->Arg(1000)->Arg(10000);
 
 
 #endif
