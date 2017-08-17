@@ -442,8 +442,8 @@ public:
         Tensor permutation;
         OP_REQUIRES_OK(context,
                        context->allocate_temp(DataTypeToEnum<int64>::v(),
-                                             TensorShape({input.dim_size(0)}),
-                                             &permutation));
+                                              TensorShape({input.dim_size(0)}),
+                                              &permutation));
 	      auto eigen_vec = permutation.vec<int64>();
         RandomShuffleGPU<T>(context, input_mat, &eigen_vec, &output_mat, generator_);
         return ;

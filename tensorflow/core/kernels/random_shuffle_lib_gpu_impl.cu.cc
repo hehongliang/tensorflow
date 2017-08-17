@@ -42,7 +42,7 @@ __device__ static void init_permutation(T * permutation, int64 size){
   *permutation = static_cast<T>(0);
   for(int64 i = 0; i < size; i++){
 //#pragma unroll
-    //permutation[0] = static_cast<T>(i);
+    permutation[i] = static_cast<T>(i);
   }
 }
 
@@ -79,9 +79,10 @@ __device__ static void merge(T * permutation, int64 start, int64 next, int64 end
     i++;
   }
 
-  while(i != end - 1){
-    swap(permutation, i, start + uniform(i - start + 1));
-  }
+  //while(i != end - 1){
+    //swap(permutation, i, start + uniform(i - start + 1));
+    //i++;
+  //}
 }
 
 template<typename T>
@@ -90,8 +91,8 @@ __device__ static void map_block(int block_size, const T * source, int s_index, 
   int j = s_index * block_size;
   int offset = 0;
   while(offset < block_size){
-//#pragma unroll
-    target[j + offset] = source[i + offset];
+#pragma unroll
+    target[i] = source[j];
     offset++;
   }
 }
@@ -136,12 +137,9 @@ __global__ static void map_block_kernel(const T * source, int64 size, int64 * ma
 
 template<typename T>
 __global__ void random_shuffle_kernel(T * permutation, int64 size, bool need_init, CudaDeviceArrayStruct<random::PhiloxRandom> gens){
-  //if(need_init){
-    //ShuffleHelper::init_permutation(permutation, size);
-  //}
-  T t = permutation[100];
-  permutation[99] = t;
-  return;
+  if(need_init){
+    ShuffleHelper::init_permutation(permutation, size);
+  }
 
   int64 concurrence = blockDim.x * gridDim.x;
   int64 index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -151,13 +149,11 @@ __global__ void random_shuffle_kernel(T * permutation, int64 size, bool need_ini
     batch_size += 1;
   }
 
-
   //random::PhiloxRandom * local_gens = GetCudaDeviceArrayOnDevice(&gens);
   //auto uniform = random::RandomBitsAdapter<random::PhiloxRandom>(&local_gens[index]);
 
   random::PhiloxRandom local_gen;
-  random::RandomBitsAdapter<random::PhiloxRandom> uniform(&local_gen);
-  
+  random::RandomBitsAdapter<random::PhiloxRandom> uniform(&local_gen); 
   int64 first = index * batch_size;
   if(first >= size){
     return;
@@ -168,33 +164,39 @@ __global__ void random_shuffle_kernel(T * permutation, int64 size, bool need_ini
     last = size;
   }
 
-  //ShuffleHelper::fisher_yates_random_shuffle(permutation, 2, uniform);
-  
-  //if(blockIdx.x == gridDim.x - 1 && threadIdx.x == blockDim.x - 1){
-  //  ShuffleHelper::fisher_yates_random_shuffle(permutation + index * batch_size, batch_size + batch_remainder, uniform);
-  //}else{
- //   ShuffleHelper::fisher_yates_random_shuffle(permutation + index * batch_size, batch_size, uniform);
- //i}
+  ShuffleHelper::fisher_yates_random_shuffle(permutation + first, last - first, uniform);  
 }
 
 template<typename T>
 __global__ void merge_shuffle_kernel(T * permutation, int64 size, int64 batch_size, CudaDeviceArrayStruct<random::PhiloxRandom> gens){
   int index = blockIdx.x * blockDim.x + threadIdx.x;
 
-  random::PhiloxRandom * local_gens = GetCudaDeviceArrayOnDevice(&gens);
-  auto uniform = random::RandomBitsAdapter<random::PhiloxRandom>(&local_gens[index]);
-  if(blockIdx.x == gridDim.x - 1 && threadIdx.x == blockDim.x - 1){
-    ShuffleHelper::merge(permutation, 2*index*batch_size, (2*index + 1)*batch_size, size, uniform);
-  }else{
-    ShuffleHelper::merge(permutation, 2*index*batch_size, (2*index + 1)*batch_size, (2*index + 2)*batch_size, uniform);
+  //random::PhiloxRandom * local_gens = GetCudaDeviceArrayOnDevice(&gens);
+  random::PhiloxRandom local_gen;
+  auto uniform = random::RandomBitsAdapter<random::PhiloxRandom>(&local_gen);
+  
+  int64 first = 2 * index * batch_size;
+  if(first >= size){
+    return;
   }
+  int64 next = first + batch_size;
+  if(next >= size){
+    return;
+  }
+
+  int64 last = next + batch_size;
+  if(last > size){
+    last = size;
+  }
+  ShuffleHelper::merge(permutation, 0, 1, 2, uniform);
+  
 }
 
 template<typename T>
 void MergeRandomShuffleGPU(OpKernelContext* c,
                            typename TTypes<T, 1>::Vec * permutation,
                            bool need_init,
-			   GuardedPhiloxRandom& generator){
+                  			   GuardedPhiloxRandom& generator){
 
  
   
@@ -215,7 +217,7 @@ void MergeRandomShuffleGPU(OpKernelContext* c,
   int64 batch_size = std::ceil(size / static_cast<float>(concurrence));
   //int64 batch_remainder = size % concurrence;
   
-  std::cout
+  /*std::cout
   <<" total="<<total
   <<" concurrenc="<<concurrence
   <<" max_physical_processor_count="<<max_physical_processor_count
@@ -224,11 +226,11 @@ void MergeRandomShuffleGPU(OpKernelContext* c,
   <<" blocks="<<blocks
   <<" size="<<size
   <<" batch_size="<<batch_size
-  <<std::endl;
+  <<std::endl;*/
 
-  for(int i = 0; i < permutation->dimension(0); i++){
-   // std::cout<<i<<":"<<permutation->data()[i]<<std::endl;
-  }
+  //for(int i = 0; i < permutation->dimension(0); i++){
+  // std::cout<<i<<":"<<permutation->data()[i]<<std::endl;
+  //}
 
   CudaDeviceArrayOnHost<random::PhiloxRandom> gens(c, concurrence);
   OP_REQUIRES_OK(c, gens.Init());
@@ -241,13 +243,14 @@ void MergeRandomShuffleGPU(OpKernelContext* c,
                 permutation->dimension(0),
                 need_init,
                 gens.data());
-  return;
+
   while(concurrence > 1){
     if(blocks >= 2){
       blocks /= 2;
     }else {
       threads /= 2;
     }
+
     int merge_concurrence = concurrence / 2;
     CudaDeviceArrayOnHost<random::PhiloxRandom> gens(c, merge_concurrence);
     OP_REQUIRES_OK(c, gens.Init());
@@ -255,10 +258,10 @@ void MergeRandomShuffleGPU(OpKernelContext* c,
       gens.Set(i, generator.ReserveSamples128(batch_size * 2));
     }
     OP_REQUIRES_OK(c, gens.Finalize());
-    merge_shuffle_kernel<<<blocks, threads, 0, d.stream()>>>(permutation,
-                                                           size,
-                                                           batch_size,
-                                                           gens.data());
+    merge_shuffle_kernel<<<blocks, threads, 0, d.stream()>>>(permutation->data(),
+                                                             permutation->dimension(0),
+                                                             batch_size,
+                                                             gens.data());
 
     concurrence = merge_concurrence;
     batch_size *= 2;
@@ -280,16 +283,14 @@ void Assign(OpKernelContext* c,
   int concurrence = std::min(physical_thread_count, total);
   int threads_per_block = std::min(max_thread_per_physical_processor, total);
   int blocks = std::ceil(concurrence / threads_per_block);
+  CHECK(inputs_matrix.size() % permutation->dimension(0) == 0 );
+  CHECK(inputs_matrix.dimension(0) == permutation->dimension(0));
   map_block_kernel<T><<<blocks, threads_per_block, 0, d.stream()>>>(inputs_matrix.data(),
-                                                                                  static_cast<int64>(inputs_matrix.size()),
-                                                                                  permutation->data(),
-                                                                                  static_cast<int64>(permutation->size()),
-                                                                                  output->data());
+                                                                    static_cast<int64>(inputs_matrix.size()),
+                                                                    permutation->data(),
+                                                                    static_cast<int64>(permutation->dimension(0)),
+                                                                    output->data());
 }
-
-
-
-
 
 
 
@@ -359,7 +360,7 @@ void RandomShuffleGPU(OpKernelContext* c,
                       typename TTypes<int64, 1>::Vec * permutation,
                       typename TTypes<T, 2>::Matrix * output,
                       GuardedPhiloxRandom& generator){
-  return;
+  CHECK(permutation->dimension(0) == inputs_matrix.dimension(0));
   MergeRandomShuffleGPU<int64>(c, permutation, true, generator);
   Assign<T>(c, inputs_matrix, permutation, output);
 }
