@@ -280,6 +280,18 @@ TEST(PhiloxRandomTest, RandomParametersDoubleMomentsTest) {
   RandomParametersMomentsTest<double>(1 << 20, 40, strides, kZLimit);
 }
 
+TEST(RandomBitsAdapterTest, SimpleRandomBitsAdapterTest){
+  PhiloxRandom generator;
+  RandomBitsAdapter<PhiloxRandom> adapter(&generator);
+  int iteration = 1;
+  while(iteration++ < 1000){
+    std::cout<<adapter(iteration)<<std::endl;
+    ASSERT_TRUE(adapter(iteration) < iteration);
+  }
+}
+
+
+
 }  // namespace
 }  // namespace random
 }  // namespace tensorflow
