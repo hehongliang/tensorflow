@@ -420,8 +420,9 @@ public:
           Tensor* output = nullptr;
           OP_REQUIRES_OK(context,
                          context->allocate_output(0, input.shape(), &output));
+          std::cout<<"catch 5"<<std::endl;
           auto vec = output->vec<T>();
-          DeepCopyGPU<T>(context, input.vec<T>(), vec);
+          DeepCopyGPU<T>(context, input.vec<T>(), vec); 
           RandomShuffleVectorGPU<T>(context, &vec, generator_);
           return;
         }

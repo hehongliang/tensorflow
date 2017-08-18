@@ -55,7 +55,9 @@ __device__ static void swap(T * permutation, int64 i, int64 j){
 
 template<typename T, typename Uniform>
 __device__ static void fisher_yates_random_shuffle(T * permutation, int64 size, Uniform &uniform){
-  for(int64 i = 0; i < size - 1; i++){
+  //swap(permutation, 0, size - 1);
+  //return;
+  for(int64 i = 0; i < size; i++){
     int64 j = i + uniform(size - i);
     swap(permutation, i, j);
   }
@@ -79,10 +81,10 @@ __device__ static void merge(T * permutation, int64 start, int64 next, int64 end
     i++;
   }
 
-  //while(i != end - 1){
-    //swap(permutation, i, start + uniform(i - start + 1));
-    //i++;
-  //}
+  while(i < end - 1){
+    swap(permutation, i, start + uniform(i - start + 1));
+    i++;
+  }
 }
 
 template<typename T>
@@ -148,12 +150,14 @@ __global__ void random_shuffle_kernel(T * permutation, int64 size, bool need_ini
   if(batch_remainder > 0){
     batch_size += 1;
   }
+  //batch_size = 2;
 
-  //random::PhiloxRandom * local_gens = GetCudaDeviceArrayOnDevice(&gens);
-  //auto uniform = random::RandomBitsAdapter<random::PhiloxRandom>(&local_gens[index]);
 
-  random::PhiloxRandom local_gen;
-  random::RandomBitsAdapter<random::PhiloxRandom> uniform(&local_gen); 
+  random::PhiloxRandom * local_gens = GetCudaDeviceArrayOnDevice(&gens);
+  auto uniform = random::RandomBitsAdapter<random::PhiloxRandom>(&local_gens[index]);
+
+  //random::PhiloxRandom local_gen;
+  //random::RandomBitsAdapter<random::PhiloxRandom> uniform(&local_gen); 
   int64 first = index * batch_size;
   if(first >= size){
     return;
@@ -163,6 +167,8 @@ __global__ void random_shuffle_kernel(T * permutation, int64 size, bool need_ini
   if(last > size){
     last = size;
   }
+
+  //permutation[index] = static_cast<T>(index);
 
   ShuffleHelper::fisher_yates_random_shuffle(permutation + first, last - first, uniform);  
 }
@@ -188,7 +194,7 @@ __global__ void merge_shuffle_kernel(T * permutation, int64 size, int64 batch_si
   if(last > size){
     last = size;
   }
-  ShuffleHelper::merge(permutation, 0, 1, 2, uniform);
+  ShuffleHelper::merge(permutation, first, next, last, uniform);
   
 }
 
@@ -196,9 +202,7 @@ template<typename T>
 void MergeRandomShuffleGPU(OpKernelContext* c,
                            typename TTypes<T, 1>::Vec * permutation,
                            bool need_init,
-                  			   GuardedPhiloxRandom& generator){
-
- 
+                  			   GuardedPhiloxRandom& generator){ 
   
   const Eigen::GpuDevice& d = c->eigen_gpu_device();
   const int max_physical_processor_count = d.getNumCudaMultiProcessors();
@@ -217,7 +221,7 @@ void MergeRandomShuffleGPU(OpKernelContext* c,
   int64 batch_size = std::ceil(size / static_cast<float>(concurrence));
   //int64 batch_remainder = size % concurrence;
   
-  /*std::cout
+  std::cout
   <<" total="<<total
   <<" concurrenc="<<concurrence
   <<" max_physical_processor_count="<<max_physical_processor_count
@@ -226,7 +230,7 @@ void MergeRandomShuffleGPU(OpKernelContext* c,
   <<" blocks="<<blocks
   <<" size="<<size
   <<" batch_size="<<batch_size
-  <<std::endl;*/
+  <<std::endl;
 
   //for(int i = 0; i < permutation->dimension(0); i++){
   // std::cout<<i<<":"<<permutation->data()[i]<<std::endl;
@@ -243,7 +247,7 @@ void MergeRandomShuffleGPU(OpKernelContext* c,
                 permutation->dimension(0),
                 need_init,
                 gens.data());
-
+  //return;
   while(concurrence > 1){
     if(blocks >= 2){
       blocks /= 2;
