@@ -82,6 +82,7 @@ cc_test(
         "//tensorflow/core:test_main",
         "//tensorflow/core/grappler:grappler_item",
         "//tensorflow/core/grappler:utils",
+        "//tensorflow/core/grappler/utils:visualize_helper"
     ],
 )
 
@@ -123,6 +124,7 @@ cc_test(
         "//tensorflow/core:testlib",
         "//tensorflow/core/grappler:grappler_item",
         "//tensorflow/core/grappler:utils",
+        "//tensorflow/core/grappler/utils:visualize_helper",
     ],
 )
 
@@ -181,6 +183,7 @@ cc_test(
         "//tensorflow/core/grappler:grappler_item",
         "//tensorflow/core/grappler:utils",
         "//tensorflow/core/grappler/inputs:trivial_test_graph_input_yielder",
+        "//tensorflow/core/grappler/utils:visualize_helper",
     ],
 )
 
@@ -217,6 +220,7 @@ cc_test(
         "//tensorflow/core/grappler:grappler_item",
         "//tensorflow/core/grappler:utils",
         "//tensorflow/core/grappler/clusters:virtual_cluster",
+        "//tensorflow/core/grappler/utils:visualize_helper"
     ],
 )
 
@@ -237,6 +241,7 @@ cc_library(
         "//tensorflow/core/grappler:utils",
         "//tensorflow/core/grappler/clusters:cluster",
         "//tensorflow/core/grappler/costs:graph_properties",
+        "//tensorflow/core/grappler/utils:visualize_helper",
     ],
 )
 

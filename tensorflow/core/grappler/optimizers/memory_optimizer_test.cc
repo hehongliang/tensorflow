@@ -22,6 +22,7 @@ limitations under the License.
 #include "tensorflow/core/grappler/clusters/virtual_cluster.h"
 #include "tensorflow/core/grappler/grappler_item.h"
 #include "tensorflow/core/grappler/utils.h"
+#include "tensorflow/core/grappler/utils/visualize_helper.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
 #include "tensorflow/core/platform/test.h"
 
@@ -161,6 +162,7 @@ TEST_F(MemoryOptimizerTest, SimpleSwapping) {
   GrapplerItem item;
   TF_CHECK_OK(s.ToGraphDef(&item.graph));
 
+
   EXPECT_EQ(5, item.graph.node_size());
   EXPECT_EQ(NodeName(e.name()), item.graph.node(4).name());
   AttrValue& val =
@@ -169,10 +171,18 @@ TEST_F(MemoryOptimizerTest, SimpleSwapping) {
 
   std::unique_ptr<VirtualCluster> cluster(CreateVirtualCluster());
 
+  VisualizeHelper dh;
+  std::string content;
+  dh.PrintGraph(&item.graph, content);
+  std::cout<<content<<std::endl;
+
   MemoryOptimizer optimizer(RewriterConfig::MANUAL);
   GraphDef output;
   Status status = optimizer.Optimize(cluster.get(), item, &output);
   TF_EXPECT_OK(status);
+
+  dh.PrintGraph(&output, content);
+  std::cout<<content<<std::endl;
 
   EXPECT_EQ(7, output.node_size());
   const NodeDef& new_e = output.node(4);

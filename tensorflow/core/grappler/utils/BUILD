@@ -64,3 +64,15 @@ cc_test(
         "//tensorflow/core:test_main",
     ],
 )
+
+cc_library(
+    name = "visualize_helper",
+    srcs = ["visualize_helper.cc"],
+    hdrs = ["visualize_helper.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//tensorflow/core:lib_internal",
+        "//tensorflow/core:protos_all_cc",
+        "//tensorflow/core/grappler:utils",
+    ],
+)

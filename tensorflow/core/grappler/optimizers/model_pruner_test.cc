@@ -19,6 +19,7 @@ limitations under the License.
 #include "tensorflow/core/grappler/grappler_item.h"
 #include "tensorflow/core/grappler/inputs/trivial_test_graph_input_yielder.h"
 #include "tensorflow/core/grappler/utils.h"
+#include "tensorflow/core/grappler/utils/visualize_helper.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
 #include "tensorflow/core/platform/test.h"
 
@@ -101,14 +102,26 @@ TEST_F(ModelPrunerTest, IdentityPruning) {
   GrapplerItem item;
   TF_CHECK_OK(s.ToGraphDef(&item.graph));
 
+
+
   // Force the placement of c. This should ensure it is preserved.
   EXPECT_EQ("c", item.graph.node(2).name());
   item.graph.mutable_node(2)->set_device("CPU");
+
+VisualizeHelper dh;
+std::string content;
+dh.PrintGraph(&item.graph, content);
+std::cout<<content<<std::endl;
 
   ModelPruner pruner;
   GraphDef output;
   Status status = pruner.Optimize(nullptr, item, &output);
   TF_EXPECT_OK(status);
+
+
+dh.PrintGraph(&output, content);
+std::cout<<content<<std::endl;
+
 
   EXPECT_EQ(5, output.node_size());
   const NodeDef& new_a = output.node(0);

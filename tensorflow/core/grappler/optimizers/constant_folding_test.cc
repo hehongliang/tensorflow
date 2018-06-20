@@ -19,6 +19,7 @@ limitations under the License.
 #include "tensorflow/core/framework/tensor_testutil.h"
 #include "tensorflow/core/grappler/grappler_item.h"
 #include "tensorflow/core/grappler/utils.h"
+#include "tensorflow/core/grappler/utils/visualize_helper.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
 #include "tensorflow/core/lib/strings/strcat.h"
 #include "tensorflow/core/platform/test.h"
@@ -57,10 +58,19 @@ TEST_F(ConstantFoldingTest, SimpleFolding) {
   item.fetch.push_back("d");
   TF_CHECK_OK(s.ToGraphDef(&item.graph));
 
+
+VisualizeHelper dh;
+std::string content;
+dh.PrintGraph(&item.graph, content);
+std::cout<<content<<std::endl;
+
   ConstantFolding fold;
   GraphDef output;
   Status status = fold.Optimize(nullptr, item, &output);
   TF_EXPECT_OK(status);
+
+dh.PrintGraph(&output, content);
+std::cout<<content<<std::endl;
 
   EXPECT_EQ(5, output.node_size());
 
@@ -154,6 +164,7 @@ TEST_F(ConstantFoldingTest, ControlDependencies) {
   Output i2 = ops::Identity(scope.WithOpName("i2"), {i1});
   Output i3 = ops::Identity(scope.WithOpName("e"), {i2});
 
+
   GrapplerItem item;
   item.fetch.push_back("i3");
   TF_CHECK_OK(scope.ToGraphDef(&item.graph));
@@ -162,10 +173,13 @@ TEST_F(ConstantFoldingTest, ControlDependencies) {
   ASSERT_EQ("i2", item.graph.node(5).name());
   (*item.graph.mutable_node(5)->add_input()) = "^p2";
 
+
+
   ConstantFolding fold;
   GraphDef output;
   Status status = fold.Optimize(nullptr, item, &output);
   TF_EXPECT_OK(status);
+
 
   int found = 0;
   for (const auto& node : output.node()) {
@@ -286,10 +300,12 @@ TEST_F(ConstantFoldingTest, ShapeMaterialization) {
   item.fetch.push_back("p2");
   TF_CHECK_OK(scope.ToGraphDef(&item.graph));
 
+
   ConstantFolding fold;
   GraphDef output;
   Status status = fold.Optimize(nullptr, item, &output);
   TF_EXPECT_OK(status);
+
 
   int found = 0;
   for (const auto& node : output.node()) {

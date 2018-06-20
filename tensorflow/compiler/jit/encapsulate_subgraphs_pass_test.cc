@@ -16,6 +16,7 @@ limitations under the License.
 #include <utility>
 
 #include "tensorflow/compiler/jit/encapsulate_subgraphs_pass.h"
+#include "tensorflow/compiler/jit/dump_graph_to_graphviz.h"
 
 #include "tensorflow/cc/framework/ops.h"
 #include "tensorflow/cc/ops/standard_ops.h"
@@ -201,6 +202,12 @@ TEST(EncapsulateSubgraphsTest, OneFunction) {
     TF_EXPECT_OK(b1.ToGraphDef(&graphdef));
   }
 
+DumpGraphToGraphviz dumper;
+std::string content;
+dumper.PrintGraph(&graphdef, content);
+std::cout<<content<<std::endl;
+
+
   TF_EXPECT_OK(Encapsulate(&graphdef, &library));
 
   FunctionDefLibrary library_expected;
@@ -230,6 +237,9 @@ TEST(EncapsulateSubgraphsTest, OneFunction) {
     TF_EXPECT_OK(b2.ToGraphDef(&graphdef_expected));
   }
 
+dumper.PrintGraph(&graphdef_expected, content);
+std::cout<<content<<std::endl;
+
   // If there are no marked nodes, funcification should be a no-op.
   TF_EXPECT_GRAPH_EQ(graphdef_expected, graphdef);
   TF_EXPECT_FUNCTIONDEFLIBRARY_EQ(library_expected, library);
@@ -256,6 +266,8 @@ TEST(EncapsulateSubgraphsTest, TwoFunctions) {
     Binary(a, d, b1.opts().WithName("E"));
     TF_EXPECT_OK(b1.ToGraphDef(&graphdef));
   }
+
+
 
   TF_EXPECT_OK(Encapsulate(&graphdef, &library));
 

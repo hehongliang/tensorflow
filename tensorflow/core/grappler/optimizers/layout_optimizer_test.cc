@@ -19,6 +19,7 @@ limitations under the License.
 #include "tensorflow/core/framework/tensor_testutil.h"
 #include "tensorflow/core/grappler/grappler_item.h"
 #include "tensorflow/core/grappler/utils.h"
+#include "tensorflow/core/grappler/utils/visualize_helper.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
 #include "tensorflow/core/platform/test.h"
 
@@ -105,12 +106,26 @@ TEST_F(LayoutOptimizerTest, Conv2DBackpropInput) {
   tensorflow::Scope s = tensorflow::Scope::NewRootScope();
   auto conv = SimpleConv2DBackpropInput(&s, 7, 2, "SAME");
   Output fetch = ops::Identity(s.WithOpName("Fetch"), {conv});
+
+
+
+
   GrapplerItem item;
   TF_CHECK_OK(s.ToGraphDef(&item.graph));
+
+VisualizeHelper dh;
+std::string content;
+dh.PrintGraph(&item.graph, content);
+std::cout<<content<<std::endl;
+
   LayoutOptimizer optimizer;
   optimizer.set_num_gpus(1);
   GraphDef output;
   Status status = optimizer.Optimize(nullptr, item, &output);
+
+dh.PrintGraph(&output, content);
+std::cout<<content<<std::endl;
+
   NodeMap node_map(&output);
   string input_name = AddPrefixToNodeName("Conv2DBackpropInput-InputSizes",
                                           "LayoutOptimizer", "-");

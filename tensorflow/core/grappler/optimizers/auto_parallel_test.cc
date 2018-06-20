@@ -18,6 +18,7 @@ limitations under the License.
 #include "tensorflow/core/framework/node_def.pb.h"
 #include "tensorflow/core/grappler/grappler_item.h"
 #include "tensorflow/core/grappler/utils.h"
+#include "tensorflow/core/grappler/utils/visualize_helper.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
 #include "tensorflow/core/platform/test.h"
 
@@ -26,6 +27,11 @@ namespace grappler {
 namespace {
 
 class AutoParallelTest : public ::testing::Test {};
+
+
+
+
+
 
 TEST_F(AutoParallelTest, SimpleParallel) {
   tensorflow::Scope s = tensorflow::Scope::NewRootScope();
@@ -48,11 +54,19 @@ TEST_F(AutoParallelTest, SimpleParallel) {
   item.init_ops.push_back("assign");
   TF_CHECK_OK(s.ToGraphDef(&item.graph));
 
+  VisualizeHelper dh;
+  std::string content;
+  dh.PrintGraph(&item.graph, content);
+  std::cout<<content<<std::endl;
+
   AutoParallel parallel(2);
   GraphDef output;
   Status status = parallel.Optimize(nullptr, item, &output);
   TF_EXPECT_OK(status);
   EXPECT_EQ(21, output.node_size());
+
+  dh.PrintGraph(&output, content);
+  std::cout<<content<<std::endl;
 
   const NodeDef& node_assign = output.node(0);
   EXPECT_EQ("assign", node_assign.name());
@@ -124,6 +138,7 @@ TEST_F(AutoParallelTest, SimpleParallel) {
   const NodeDef& node_gradient = output.node(20);
   EXPECT_EQ("apply_gradient", node_gradient.name());
   EXPECT_EQ("^AutoParallel-Control-Fetch", node_gradient.input(0));
+  std::cout<<"hellow"<<std::endl;
 }
 
 }  // namespace

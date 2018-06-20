@@ -229,6 +229,22 @@ cc_library(
     hdrs = ["union_find.h"],
 )
 
+
+cc_library(
+    name = "dump_graph_to_graphviz",
+    srcs = [
+        "dump_graph_to_graphviz.cc",
+    ],
+    hdrs = [
+        "dump_graph_to_graphviz.h",
+    ],
+    deps = [
+        "//tensorflow/core:protos_all_cc",
+        "//tensorflow/core:framework",
+    ],
+)
+
+
 cc_test(
     name = "compilation_passes_test",
     size = "small",
@@ -241,6 +257,7 @@ cc_test(
         ":common",
         ":compilation_passes",
         ":graph_to_functiondef",
+        ":dump_graph_to_graphviz",
         "//tensorflow/cc:cc_ops",
         "//tensorflow/cc:cc_ops_internal",
         "//tensorflow/cc:function_ops",

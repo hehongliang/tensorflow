@@ -15,6 +15,7 @@ limitations under the License.
 
 #include "tensorflow/compiler/jit/mark_for_compilation_pass.h"
 #include "tensorflow/compiler/jit/defs.h"
+#include "tensorflow/compiler/jit/dump_graph_to_graphviz.h"
 
 #include "tensorflow/cc/framework/ops.h"
 #include "tensorflow/cc/ops/control_flow_ops_internal.h"
@@ -25,6 +26,7 @@ limitations under the License.
 #include "tensorflow/core/graph/graph_def_builder.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
 #include "tensorflow/core/platform/test.h"
+
 
 namespace tensorflow {
 namespace {
@@ -83,12 +85,15 @@ TEST(XlaCompilationTest, Chains) {
 
   MarkForCompilation(&graph);
   auto clusters = GetClusters(*graph);
+
+
   EXPECT_EQ(4, clusters.size());
   EXPECT_EQ(clusters["B"], clusters["C"]);
   EXPECT_EQ(clusters["E"], clusters["F"]);
   EXPECT_NE(clusters["B"], clusters["E"]);
   EXPECT_TRUE(clusters.find("A") == clusters.cend());
   EXPECT_TRUE(clusters.find("D") == clusters.cend());
+
 }
 
 TEST(XlaCompilationTest, UncompilableCycles) {
@@ -222,6 +227,9 @@ TEST(XlaCompilationTest, FunctionCalls) {
   EXPECT_TRUE(clusters.find("A") == clusters.cend());
   EXPECT_TRUE(clusters.find("D") == clusters.cend());
   EXPECT_TRUE(clusters.find("E") == clusters.cend());
+
+
+
 }
 
 // Metadata-only operators such as Shape/Rank/Size may not be the root of a
